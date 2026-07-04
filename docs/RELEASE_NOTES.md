@@ -2,7 +2,7 @@
 
 ## v1-local-product-dogfood-pass (2026-07-04)
 
-Commit: `15b5374fa34a1c62d3e1d057726abb1ef9076094` (tag `v1-local-product-dogfood-pass`; dogfood fixes in `56b35a8`)
+Commit: `63021f82e985fd46a624a34fa5635f794c2f3d66` (tag `v1-local-product-dogfood-pass`; full product body + hygiene + dogfood fixes)
 
 ### Cross-repo Simple UI dogfood — complete
 
