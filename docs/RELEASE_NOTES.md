@@ -2,7 +2,7 @@
 
 ## v1-local-product-dogfood-pass (2026-07-04)
 
-Commit: `56b35a86cbdfaecbe4b56c84071f411f96cc4388` (+ hygiene docs)
+Commit: `15b5374fa34a1c62d3e1d057726abb1ef9076094` (tag `v1-local-product-dogfood-pass`; dogfood fixes in `56b35a8`)
 
 ### Cross-repo Simple UI dogfood — complete
 
@@ -38,3 +38,19 @@ New failures format as `Failed (no_executable_work; backlog_empty)`. No engine c
 ### Packaging note
 
 Self service `ExecStartPre` health check can exceed 60s on a loaded host. Unit `TimeoutStartSec` is **180s** so install/update restart succeeds.
+
+### Update path verified (2026-07-04)
+
+Documented path `bash scripts/install_purple_halo.sh --update` completed **exit 0** with no manual intervention:
+
+| Phase | Observed |
+|-------|----------|
+| Full script | ~401s wall |
+| `operator_runtime.py --health` (in script) | ~61s |
+| All embedded self-checks | pass |
+| systemd `ExecStartPre` health | ~70s (17:18:53 → 17:20:03) |
+| `TimeoutStartSec=180` | sufficient (no timeout) |
+
+After systemd reports **active**, HTTP on **8765** may take **~1–2 min** more: `operator_service.py` runs `startup_health_checks()` again before binding the port. This is expected v1 behavior, not a timeout failure.
+
+Post-update smoke: `operator_api --self-check` PASS · `ph_cli status`/`report` OK · HTTP 200 at http://127.0.0.1:8765/
