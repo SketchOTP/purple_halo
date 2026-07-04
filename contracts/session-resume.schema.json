@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "agent/contracts/session-resume.schema.json",
+  "title": "Resumable Session Checkpoint",
+  "type": "object",
+  "required": [
+    "resume_id",
+    "trace_id",
+    "task",
+    "status",
+    "next_step",
+    "tool_loadout"
+  ],
+  "properties": {
+    "resume_id": { "type": "string", "minLength": 1 },
+    "trace_id": { "type": "string", "minLength": 1 },
+    "task": { "type": "string", "minLength": 1 },
+    "status": { "type": "string", "enum": ["ready", "blocked", "waiting_verification"] },
+    "next_step": { "type": "string", "minLength": 1 },
+    "tool_loadout": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "parallel_tracks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "status"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "status": { "type": "string", "enum": ["pending", "running", "done", "blocked"] }
+        },
+        "additionalProperties": false
+      }
+    },
+    "lineage": {
+      "type": "object",
+      "properties": {
+        "lineage_id": { "type": "string", "minLength": 1 },
+        "parent_trace_id": { "type": "string", "minLength": 1 },
+        "resumed_from_trace_id": { "type": "string", "minLength": 1 },
+        "resume_depth": { "type": "integer", "minimum": 0 }
+      },
+      "required": ["lineage_id", "resume_depth"],
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

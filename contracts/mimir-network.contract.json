@@ -1,0 +1,60 @@
+{
+  "$schema": "mimir-network-contract-v1",
+  "description": "Canonical network topology for Mimir. Scripts and docs must match this file.",
+  "access_model": {
+    "primary": "tailscale-first",
+    "secondary": ["server-loopback", "lan-direct"],
+    "notes": "Clients use Tailscale HTTPS. Server operators use loopback on the host. LAN is dev-only fallback via mimir/scripts/start_lan.sh."
+  },
+  "topology": {
+    "server_host": "<mimir-host>",
+    "server_role": "Mimir runs on Atlas via docker compose (prod-postgres profile: api-pg on host port 8787).",
+    "client_reachability": "tailnet-only",
+    "reverse_proxy": "tailscale-serve-https",
+    "shared_listener": true,
+    "listener_notes": "API and MCP share one HTTP listener. MCP is at {endpoint}/mcp; REST API at {endpoint}/api/*."
+  },
+  "endpoints": {
+    "canonical_client": "https://<mimir-host>.<tailnet>.ts.net:8082",
+    "server_loopback": "http://127.0.0.1:8787",
+    "canonical_mcp": "https://<mimir-host>.<tailnet>.ts.net:8082/mcp",
+    "canonical_api_health": "https://<mimir-host>.<tailnet>.ts.net:8082/api/health"
+  },
+  "ports": {
+    "container_api": 8787,
+    "tailscale_public": 8082
+  },
+  "auth": {
+    "model": "shared-api-key",
+    "intentional": true,
+    "client_env_var": "MIMIR_API_KEY",
+    "server_storage": "Mimir server database (owner API key); not committed to repos",
+    "client_storage": "~/.config/mimir/env (chmod 600)",
+    "headers": ["Authorization: Bearer <key>", "X-API-Key: <key>"],
+    "missing_key_behavior": "HTTP 401 on /api/* and /mcp; verifier reports auth_failure",
+    "invalid_key_behavior": "HTTP 401; verifier reports auth_failure"
+  },
+  "repo_roots": {
+    "host_canonical": "/home/sketch/Projects",
+    "container_canonical": "/host/projects",
+    "client_env": {
+      "host": "MIMIR_HOST_REPO_ROOT",
+      "container": "MIMIR_CONTAINER_REPO_ROOT"
+    },
+    "indexing_rule": "Indexing and code navigation operate only on paths visible inside the Mimir server container mount.",
+    "client_path_rule": "Client machines do not mount repos into Mimir. They reference repo_name (e.g. agent) for queries against host-indexed repos."
+  },
+  "remote_capabilities": {
+    "can_query_memory": true,
+    "can_use_mcp": true,
+    "can_use_code_navigation_on_host_repos": true,
+    "can_trigger_index_on_host_visible_repos": true,
+    "can_index_arbitrary_local_client_disk": false,
+    "can_run_serena_on_client": true,
+    "notes": "Remote PCs are governed consumers of the Atlas Mimir service. Serena runs locally per workspace; Mimir memory/navigation is remote."
+  },
+  "mcp_stack": {
+    "canonical_servers": ["mimir", "serena", "github"],
+    "forbidden_default_additions": ["cocoindex-code", "architect", "aion", "codebase-memory-mcp", "headroom", "gitmcp"]
+  }
+}

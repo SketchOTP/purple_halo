@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>purple_halo — Engineering console</title>
+  <link rel="stylesheet" href="/advanced.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div class="brand">Engineering console</div>
+      <div id="live-dot" class="live-dot" title="Live"></div>
+      <div class="top-spacer"></div>
+      <div id="top-status" class="top-status"></div>
+      <a class="quiet back-link" href="/">← Simple UI</a>
+    </header>
+    <div class="eng-banner">Secondary tooling for debugging and engine inspection (hold, ledger, budget, self-checks). Daily operation lives on the <a href="/">Simple UI</a>.</div>
+    <div class="layout">
+      <nav class="nav" id="nav">
+        <button data-route="home" class="active">Home</button>
+        <button data-route="runs">Runs</button>
+        <button data-route="goals">Goals</button>
+        <button data-route="settings">Settings</button>
+        <button data-route="advanced">Engine</button>
+      </nav>
+      <main class="main" id="main"></main>
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
+  <div class="drawer-bg" id="drawer-bg">
+    <aside class="drawer" id="drawer">
+      <div class="drawer-head">
+        <h3 id="drawer-title">Details</h3>
+        <button class="btn icon" id="drawer-close" aria-label="Close">×</button>
+      </div>
+      <div class="drawer-body" id="drawer-body"></div>
+    </aside>
+  </div>
+  <div class="modal-bg" id="modal">
+    <div class="modal">
+      <h4 id="modal-title">Confirm</h4>
+      <p class="muted" id="modal-body"></p>
+      <div class="row end">
+        <button class="btn" id="modal-cancel">Cancel</button>
+        <button class="btn danger" id="modal-ok">Confirm</button>
+      </div>
+    </div>
+  </div>
+  <script src="/advanced.js"></script>
+</body>
+</html>

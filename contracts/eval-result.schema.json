@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "agent/contracts/eval-result.schema.json",
+  "title": "Agent Eval Result",
+  "type": "object",
+  "required": [
+    "eval_id",
+    "trace_id",
+    "outcome",
+    "scores",
+    "findings"
+  ],
+  "properties": {
+    "eval_id": { "type": "string", "minLength": 1 },
+    "trace_id": { "type": "string", "minLength": 1 },
+    "outcome": { "type": "string", "enum": ["pass", "warn", "fail"] },
+    "scores": {
+      "type": "object",
+      "required": ["goal_completion", "verification_quality", "token_efficiency"],
+      "properties": {
+        "goal_completion": { "type": "number", "minimum": 0, "maximum": 1 },
+        "verification_quality": { "type": "number", "minimum": 0, "maximum": 1 },
+        "token_efficiency": { "type": "number", "minimum": 0, "maximum": 1 },
+        "tool_selection": { "type": "number", "minimum": 0, "maximum": 1 },
+        "memory_quality": { "type": "number", "minimum": 0, "maximum": 1 },
+        "pack_relevance": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["severity", "message"],
+        "properties": {
+          "severity": { "type": "string", "enum": ["low", "medium", "high"] },
+          "message": { "type": "string", "minLength": 1 },
+          "failure_class": {
+            "type": "string",
+            "enum": [
+              "tool_flaky",
+              "wrong_tool_selected",
+              "architectural_drift",
+              "verification_gap",
+              "test_regression",
+              "other"
+            ]
+          },
+          "repair_hint": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "$defs": {
+    "verification_check": {
+      "type": "object",
+      "required": ["label", "result"],
+      "properties": {
+        "label": { "type": "string", "minLength": 1 },
+        "command": { "type": "string" },
+        "result": { "type": "string", "enum": ["pass", "fail", "blocked", "not_run"] },
+        "evidence": { "type": "string" },
+        "failure_class": {
+          "type": "string",
+          "enum": [
+            "tool_flaky",
+            "wrong_tool_selected",
+            "architectural_drift",
+            "verification_gap",
+            "test_regression",
+            "other"
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

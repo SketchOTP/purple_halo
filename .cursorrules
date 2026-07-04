@@ -1,0 +1,5 @@
+# GENERATED — Legacy compatibility stub. Do not edit.
+# Canonical rules: AGENTS.md
+# Regenerate: scripts/sync-agent-rules.sh
+
+See AGENTS.md and .cursor/rules/00-core-contract.mdc (pointer only).

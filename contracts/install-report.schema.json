@@ -1,0 +1,290 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "agent/contracts/install-report.schema.json",
+  "title": "Governed Repo Install Report",
+  "type": "object",
+  "required": [
+    "report_id",
+    "generated_at",
+    "kernel",
+    "target",
+    "slug",
+    "level",
+    "mode",
+    "detection",
+    "readiness",
+    "apply_allowed",
+    "apply_executed",
+    "global_preflight",
+    "plan",
+    "apply_result",
+    "verification",
+    "conflicts"
+  ],
+  "properties": {
+    "report_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "kernel": {
+      "type": "string",
+      "minLength": 1
+    },
+    "target": {
+      "type": "string",
+      "minLength": 1
+    },
+    "slug": {
+      "type": "string",
+      "minLength": 1
+    },
+    "language": {
+      "type": "string"
+    },
+    "level": {
+      "type": "string",
+      "enum": [
+        "navigation",
+        "full"
+      ]
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "dry_run",
+        "apply"
+      ]
+    },
+    "detection": {
+      "type": "string",
+      "enum": [
+        "new_repo",
+        "existing_repo",
+        "ambiguous"
+      ]
+    },
+    "readiness": {
+      "type": "string",
+      "enum": [
+        "blocked",
+        "partial",
+        "navigation_ready",
+        "governed_runtime_ready"
+      ]
+    },
+    "apply_allowed": {
+      "type": "boolean"
+    },
+    "apply_executed": {
+      "type": "boolean"
+    },
+    "global_preflight": {
+      "$ref": "#/$defs/preflight_result"
+    },
+    "plan": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/plan_action"
+      }
+    },
+    "apply_result": {
+      "$ref": "#/$defs/apply_result"
+    },
+    "verification": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/verification_check"
+      }
+    },
+    "conflicts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/conflict_item"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "preflight_check": {
+      "type": "object",
+      "required": [
+        "name",
+        "status"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pass",
+            "fail",
+            "skip",
+            "warn"
+          ]
+        },
+        "detail": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "preflight_result": {
+      "type": "object",
+      "required": [
+        "ok",
+        "checks"
+      ],
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/preflight_check"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "plan_action": {
+      "type": "object",
+      "required": [
+        "action",
+        "path",
+        "status"
+      ],
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "copy",
+            "mkdir",
+            "backup_remove",
+            "run",
+            "skip",
+            "conflict"
+          ]
+        },
+        "source": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "planned",
+            "applied",
+            "skipped",
+            "conflict",
+            "failed"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "apply_result": {
+      "type": "object",
+      "required": [
+        "applied",
+        "skipped",
+        "conflicts",
+        "failures"
+      ],
+      "properties": {
+        "applied": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "skipped": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "conflicts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failures": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "verification_check": {
+      "type": "object",
+      "required": [
+        "name",
+        "status"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pass",
+            "fail",
+            "skip",
+            "warn"
+          ]
+        },
+        "detail": {
+          "type": "string"
+        },
+        "command": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "conflict_item": {
+      "type": "object",
+      "required": [
+        "path",
+        "reason"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kernel_source": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

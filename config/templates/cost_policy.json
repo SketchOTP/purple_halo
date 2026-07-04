@@ -1,0 +1,6 @@
+{
+  "budget_mode": "cheap_default",
+  "allow_expensive_execution": false,
+  "pin_expensive_execution": false,
+  "worker_health_ttl_seconds": 3600
+}

@@ -1,0 +1,24 @@
+{
+  "enabled": true,
+  "timezone": "UTC",
+  "runs": [
+    {
+      "at": "09:00",
+      "label": "daily self-improvement"
+    }
+  ],
+  "max_runs_per_day": 4,
+  "mode": "self_product_mode",
+  "cheap_default": true,
+  "monthly_token_ceiling": 500000,
+  "production_candidate_operations": true,
+  "architecture_freeze": true,
+  "goal_delivery_mode": true,
+  "auto_pause_conditions": [
+    "repeated_regression",
+    "monthly_token_ceiling",
+    "operator_pause",
+    "budget_guard"
+  ],
+  "operator_review_trigger": "regression_auto_pause"
+}

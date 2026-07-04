@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "agent/contracts/hook-event.schema.json",
+  "title": "Lifecycle Hook Event",
+  "type": "object",
+  "required": [
+    "event_id",
+    "hook",
+    "trace_id",
+    "status",
+    "timestamp"
+  ],
+  "properties": {
+    "event_id": { "type": "string", "minLength": 1 },
+    "hook": {
+      "type": "string",
+      "enum": [
+        "session_start",
+        "user_prompt_submitted",
+        "pre_tool_use",
+        "post_tool_use",
+        "verification_complete",
+        "subagent_stop",
+        "error_occurred",
+        "session_end"
+      ]
+    },
+    "trace_id": { "type": "string", "minLength": 1 },
+    "status": { "type": "string", "enum": ["allow", "deny", "observe", "error"] },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "details": { "type": "object" }
+  },
+  "additionalProperties": false
+}

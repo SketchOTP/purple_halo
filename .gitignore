@@ -1,0 +1,28 @@
+# Editor / local tooling
+.cursor/
+.serena/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Secrets / credentials
+.env
+.env.*
+*.pem
+
+# Regenerated operator output
+RUN_REPORT.md
+
+# Local test scratch
+.loop_test_report.txt
+
+# Runtime state (machine-local; seeded on install)
+/project_memory/runtime/*
+!/project_memory/runtime/ui_dogfood_log.json
+
+# Logs and temp
+*.log
+*.tmp
+.cache/

@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://purple-halo.local/contracts/worker-result.schema.json",
+  "title": "WorkerResult",
+  "type": "object",
+  "required": ["work_id", "outcome_class", "changed_files", "commands_run", "verification_output"],
+  "properties": {
+    "work_id": { "type": "string" },
+    "outcome_class": {
+      "type": "string",
+      "enum": ["verified_complete", "verified_partial", "verification_failed", "execution_failed", "worker_unavailable"]
+    },
+    "changed_files": { "type": "array", "items": { "type": "string" } },
+    "commands_run": { "type": "array" },
+    "verification_output": { "type": "array" },
+    "repo_delta_summary": { "type": "string" },
+    "summary": { "type": "string" },
+    "trace_id": { "type": "string" },
+    "errors": { "type": "array", "items": { "type": "string" } },
+    "completed_outputs": { "type": "array", "items": { "type": "string" } },
+    "missing_outputs": { "type": "array", "items": { "type": "string" } },
+    "followup_candidates": { "type": "array" },
+    "failure_evidence": { "type": "array" }
+  },
+  "additionalProperties": true
+}

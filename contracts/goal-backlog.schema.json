@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "purple_halo/contracts/goal-backlog.schema.json",
+  "title": "Purple Halo Goal Backlog",
+  "type": "object",
+  "required": ["version", "updated_at", "capability_gaps", "product_work_items"],
+  "properties": {
+    "version": { "type": "integer", "minimum": 1 },
+    "updated_at": { "type": "string", "minLength": 1 },
+    "capability_gaps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "description"],
+        "properties": {
+          "id": { "type": "string" },
+          "description": { "type": "string" },
+          "priority": { "type": "integer" }
+        }
+      }
+    },
+    "product_work_items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "work_id",
+          "title",
+          "goal_gap_addressed",
+          "task_type",
+          "priority",
+          "status",
+          "expected_repo_delta",
+          "verification_commands",
+          "blocked_by"
+        ],
+        "properties": {
+          "work_id": { "type": "string", "minLength": 1 },
+          "title": { "type": "string", "minLength": 1 },
+          "goal_gap_addressed": { "type": "string", "minLength": 1 },
+          "task_type": { "type": "string", "minLength": 1 },
+          "priority": { "type": "integer", "minimum": 0 },
+          "status": {
+            "type": "string",
+            "enum": ["open", "in_progress", "verified", "rejected"]
+          },
+          "expected_repo_delta": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "verification_commands": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "blocked_by": { "type": "string" },
+          "actions": { "type": "array" },
+          "description": { "type": "string" },
+          "failure_reason": { "type": "string" },
+          "verified_at": { "type": "string" },
+          "cycle_id": { "type": "integer" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "empty_reason": {
+      "type": "string",
+      "enum": [
+        "goal_underspecified",
+        "repo_blocked",
+        "research_missing",
+        "implementation_blocked",
+        "product_complete"
+      ]
+    }
+  },
+  "additionalProperties": false
+}

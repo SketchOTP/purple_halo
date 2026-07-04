@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>purple_halo — Autonomous repo operator</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <main class="wrap">
+    <header class="top">
+      <div>
+        <p class="eyebrow">Autonomous repo operator</p>
+        <h1>purple_halo</h1>
+        <p class="sub">Install → goal → frequency → Play → report. One surface for any repo.</p>
+      </div>
+      <div class="top-right">
+        <span id="badge" class="badge">…</span>
+      </div>
+    </header>
+
+    <section class="instance-bar" aria-label="Instance">
+      <div class="instance-grid">
+        <div class="instance-item">
+          <span class="instance-label">Controlling repo</span>
+          <span id="instanceRepo" class="instance-value mono">…</span>
+        </div>
+        <div class="instance-item">
+          <span class="instance-label">This UI</span>
+          <a id="instanceUrl" class="instance-value mono link" href="#">…</a>
+        </div>
+        <div class="instance-item">
+          <span class="instance-label">Service</span>
+          <span id="instanceService" class="instance-value">…</span>
+        </div>
+        <div class="instance-item">
+          <span class="instance-label">Report file</span>
+          <span id="instanceReport" class="instance-value mono">…</span>
+        </div>
+      </div>
+    </section>
+
+    <p id="flash" class="flash" hidden></p>
+
+    <ol class="flow" aria-label="Setup steps">
+      <li class="flow-step" id="stepRepo">
+        <section class="card">
+          <h2><span class="step-num">1</span> Repo</h2>
+          <p class="hint">This page controls the repo shown above. Install purple_halo into another project to run it there.</p>
+          <label>This instance
+            <input id="thisRepo" type="text" readonly />
+          </label>
+          <div class="row">
+            <label class="grow">Install into another repo
+              <input id="installRepo" type="text" placeholder="/path/to/your/project" />
+            </label>
+            <button id="btnInstall" type="button" class="secondary">Install</button>
+          </div>
+          <div id="installNote" class="install-result" hidden>
+            <p id="installSummary" class="note"></p>
+            <pre id="installDetails" class="install-details"></pre>
+          </div>
+        </section>
+      </li>
+      <li class="flow-step" id="stepGoal">
+        <section class="card">
+          <h2><span class="step-num">2</span> Goal</h2>
+          <p class="hint">Point at a goal file. It is copied to <code>project_goals.md</code> in the controlled repo.</p>
+          <div class="row">
+            <label class="grow">Goal file
+              <input id="goalPath" type="text" placeholder="/path/to/goals.md" />
+            </label>
+            <button id="btnGoal" type="button" class="secondary">Use this goal</button>
+          </div>
+          <pre id="goalPreview" class="preview"></pre>
+        </section>
+      </li>
+      <li class="flow-step" id="stepFrequency">
+        <section class="card">
+          <h2><span class="step-num">3</span> How often</h2>
+          <div class="row fields">
+            <label>Every
+              <span class="inline">
+                <input id="everyHours" type="number" min="0.25" step="0.25" value="2" />
+                <span>hours</span>
+              </span>
+            </label>
+            <label>For
+              <span class="inline">
+                <input id="forDays" type="number" min="1" step="1" value="10" />
+                <span>days</span>
+              </span>
+            </label>
+            <label class="check">
+              <input id="untilGoal" type="checkbox" checked />
+              Stop when goal is achieved
+            </label>
+          </div>
+          <p class="hint">Stops at the day limit or when the goal is done — whichever comes first.</p>
+          <button id="btnFrequency" type="button" class="secondary">Save schedule</button>
+        </section>
+      </li>
+      <li class="flow-step" id="stepPlay">
+        <section class="card play-card">
+          <h2><span class="step-num">4</span> Play</h2>
+          <div class="play-row">
+            <button id="btnPlay" type="button" class="primary">Play</button>
+            <button id="btnPause" type="button" class="secondary">Pause</button>
+            <button id="btnRunOnce" type="button" class="ghost">Run once now</button>
+          </div>
+          <p id="statusLine" class="status-line"></p>
+          <p id="lastRunLine" class="status-line subtle"></p>
+        </section>
+      </li>
+    </ol>
+
+    <section class="card report-card">
+      <h2>Report</h2>
+      <p class="hint">Each run appends one line to <code>RUN_REPORT.md</code>: <code>MMDDYY HHMM</code> + summary.</p>
+      <div class="report-meta">
+        <span id="reportMeta" class="subtle"></span>
+      </div>
+      <pre id="report" class="report"></pre>
+    </section>
+
+    <footer class="footer">
+      <p>Engineering / debugging only: <a class="quiet" href="/advanced.html">Engine console</a> (hold, ledger, budget, self-checks).</p>
+    </footer>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>

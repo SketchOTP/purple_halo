@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "purple_halo/contracts/loop-state.schema.json",
+  "title": "Purple Halo Loop Continuity State",
+  "type": "object",
+  "required": [
+    "cycle_id",
+    "status",
+    "last_run_at",
+    "next_focus",
+    "next_recommended_focus",
+    "completed_milestones",
+    "rejected_milestones",
+    "open_gaps",
+    "last_verified_repo_delta",
+    "last_cycle"
+  ],
+  "properties": {
+    "cycle_id": { "type": "integer", "minimum": 0 },
+    "status": { "type": "string", "enum": ["ready", "blocked", "partial"] },
+    "last_run_at": { "type": "string", "minLength": 1 },
+    "next_focus": { "type": "string", "minLength": 1 },
+    "next_recommended_focus": { "type": "string", "minLength": 1 },
+    "completed_milestones": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "rejected_milestones": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "open_gaps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "description"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "description": { "type": "string", "minLength": 1 },
+          "priority": { "type": "integer", "minimum": 0 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "regression_milestones": {
+      "type": "object",
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    },
+    "last_verified_repo_delta": {
+      "type": "object",
+      "required": ["files", "summary"],
+      "properties": {
+        "files": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "summary": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "last_cycle": {
+      "type": "object",
+      "required": ["artifact_dir", "plan_id", "verification_passed"],
+      "properties": {
+        "artifact_dir": { "type": "string", "minLength": 1 },
+        "plan_id": { "type": "string", "minLength": 1 },
+        "verification_passed": { "type": "boolean" },
+        "summary": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

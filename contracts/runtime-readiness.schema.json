@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://purple-halo.local/contracts/runtime-readiness.schema.json",
+  "title": "RuntimeReadiness",
+  "type": "object",
+  "properties": {
+    "readiness": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "enum": ["not_present", "present_unverified", "verified_minimal", "canonical_in_use"]
+      }
+    },
+    "canonical_in_use": { "type": "array", "items": { "type": "string" } },
+    "runtime_repairs": { "type": "array" }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "agent/contracts/trace.schema.json",
+  "title": "Agent Task Trace",
+  "type": "object",
+  "required": [
+    "trace_id",
+    "task",
+    "route",
+    "status",
+    "started_at",
+    "steps",
+    "verification",
+    "tool_loadout"
+  ],
+  "properties": {
+    "trace_id": { "type": "string", "minLength": 1 },
+    "task": { "type": "string", "minLength": 1 },
+    "route": { "type": "string", "enum": ["direct", "approval_gated", "architect_direct"] },
+    "status": { "type": "string", "enum": ["complete", "partial", "blocked", "failed"] },
+    "started_at": { "type": "string", "format": "date-time" },
+    "ended_at": { "type": "string", "format": "date-time" },
+    "tool_loadout": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "provenance": {
+      "type": "object",
+      "properties": {
+        "model": { "type": "string" },
+        "provider": { "type": "string" },
+        "tool_call_count": { "type": "integer", "minimum": 0 },
+        "approval_gate_count": { "type": "integer", "minimum": 0 },
+        "architect_call_count": { "type": "integer", "minimum": 0 },
+        "memory_recall_count": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "repair_attribution": {
+      "type": "object",
+      "properties": {
+        "direct_retry": { "type": "integer", "minimum": 0 },
+        "governance_replan": { "type": "integer", "minimum": 0 },
+        "architect_replan": { "type": "integer", "minimum": 0 },
+        "verification_feedback": { "type": "integer", "minimum": 0 },
+        "memory_recall": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "lineage": {
+      "type": "object",
+      "properties": {
+        "lineage_id": { "type": "string", "minLength": 1 },
+        "parent_trace_id": { "type": "string", "minLength": 1 },
+        "resumed_from_trace_id": { "type": "string", "minLength": 1 },
+        "resume_depth": { "type": "integer", "minimum": 0 }
+      },
+      "required": ["lineage_id", "resume_depth"],
+      "additionalProperties": false
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "status"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "status": { "type": "string", "enum": ["done", "skipped", "blocked", "failed"] },
+          "notes": { "type": "string" },
+          "token_usage": {
+            "type": "object",
+            "properties": {
+              "prompt_tokens": { "type": "integer", "minimum": 0 },
+              "completion_tokens": { "type": "integer", "minimum": 0 },
+              "total_tokens": { "type": "integer", "minimum": 0 }
+            },
+            "additionalProperties": false
+          },
+          "artifacts": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "verification": {
+      "type": "array",
+      "items": { "$ref": "eval-result.schema.json#/$defs/verification_check" }
+    },
+    "token_usage": {
+      "type": "object",
+      "properties": {
+        "prompt_tokens": { "type": "integer", "minimum": 0 },
+        "completion_tokens": { "type": "integer", "minimum": 0 },
+        "total_tokens": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "routing_context": {
+      "type": "object",
+      "properties": {
+        "loaded_mcps": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "navigation_required": { "type": "boolean" },
+        "code_navigation_pack_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "route_evidence": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "tool_evidence": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "governance_tier": {
+          "type": "string",
+          "enum": ["fully_governed", "partially_governed", "ungoverned"]
+        },
+        "governance_entrypoint": { "type": "string", "minLength": 1 },
+        "degraded_reason": { "type": "string" },
+        "denied_reason": { "type": "string" },
+        "is_fully_governed": { "type": "boolean" },
+        "ungoverned_success_risk": { "type": "boolean" },
+        "pack_quality_state": { "type": "string" },
+        "pack_relevance_score": { "type": "number" },
+        "pack_token_estimate": { "type": "integer", "minimum": 0 },
+        "pack_file_count": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "eval_id": { "type": "string" },
+    "resume_id": { "type": "string" }
+  },
+  "additionalProperties": false
+}
