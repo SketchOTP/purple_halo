@@ -1,0 +1,257 @@
+{
+  "sessions": [
+    {
+      "session": 1,
+      "steps": [
+        {
+          "action": "GET /api/status/overview",
+          "ok": true
+        },
+        {
+          "action": "GET /api/status/runs",
+          "ok": true
+        },
+        {
+          "action": "GET /api/status/goal-ledger",
+          "ok": true
+        },
+        {
+          "action": "GET /api/status/diagnostics",
+          "ok": true
+        },
+        {
+          "action": "GET /api/config/schedule",
+          "ok": true
+        },
+        {
+          "action": "GET /api/config/budget",
+          "ok": true
+        },
+        {
+          "action": "pause",
+          "ok": true,
+          "summary": "autonomy paused"
+        },
+        {
+          "action": "resume",
+          "ok": true,
+          "summary": "autonomy resumed"
+        },
+        {
+          "action": "verify",
+          "ok": true,
+          "summary": "{\n  \"production_hold_mode\": true,\n  \"run_kind\": \"verify_only\",\n  \"allow_implementation\": false,\n  \"regressions\": [],\n  \"reopened_criteria\": [],\n  \"ledger_intact\": true,\n  \"why\": \"all success criteria complete; no regression detected\"\n}"
+        },
+        {
+          "action": "refresh-ledger",
+          "ok": true,
+          "summary": "ledger refreshed"
+        },
+        {
+          "action": "self-check",
+          "ok": true,
+          "summary": "pass"
+        },
+        {
+          "action": "run-now",
+          "ok": true,
+          "summary": "{\n  \"ran\": false,\n  \"reason\": \"verify_only_healthy\",\n  \"record\": {\n    \"id\": \"3b3e3541\",\n    \"started_at\": \"2026-07-04T01:54:24+00:00\",\n    \"finished_at\": \"2026-07-04T01:54:24+00:00\",\n    \"trigger\": \"manual\",\n    \"status\": \"skipped\",\n    \"cycle_id\": null,\n    \"error\": \"verify_only_healthy\",\n    \"retry_count\": 0,\n    \"outcome_class\": \"verify_only_healthy\",\n    \"why_run\": \"all success criteria complete; no regression detected\",\n    \"decision_id\": \"0250b028\"\n  },\n  \"sequence_entry\": {\n    \"id\": \"02"
+        },
+        {
+          "action": "run-due",
+          "ok": true,
+          "summary": "{\n  \"ran\": false,\n  \"reason\": \"no_due_slot\",\n  \"record\": {\n    \"id\": \"8d7d0ea8\",\n    \"started_at\": \"2026-07-04T01:54:25+00:00\",\n    \"finished_at\": \"2026-07-04T01:54:25+00:00\",\n    \"trigger\": \"scheduled\",\n    \"status\": \"skipped\",\n    \"cycle_id\": null,\n    \"error\": \"no_due_slot\",\n    \"retry_count\": 0,\n    \"outcome_class\": \"no_due_slot\",\n    \"decision_id\": \"83b555e2\"\n  },\n  \"sequence_entry\": {\n    \"id\": \"83b555e2\",\n    \"started_at\": \"2026-07-04T01:54:25+00:00\",\n    \"finished_at\": \"2026-07-04T01:54:"
+        }
+      ],
+      "final_health": "hold",
+      "final_kind": "verify_only",
+      "final_ledger_intact": true
+    },
+    {
+      "session": 2,
+      "steps": [
+        {
+          "action": "GET /api/status/overview",
+          "ok": true
+        },
+        {
+          "action": "GET /api/status/runs",
+          "ok": true
+        },
+        {
+          "action": "GET /api/status/goal-ledger",
+          "ok": true
+        },
+        {
+          "action": "GET /api/status/diagnostics",
+          "ok": true
+        },
+        {
+          "action": "GET /api/config/schedule",
+          "ok": true
+        },
+        {
+          "action": "GET /api/config/budget",
+          "ok": true
+        },
+        {
+          "action": "pause",
+          "ok": true,
+          "summary": "autonomy paused"
+        },
+        {
+          "action": "resume",
+          "ok": true,
+          "summary": "autonomy resumed"
+        },
+        {
+          "action": "verify",
+          "ok": true,
+          "summary": "{\n  \"production_hold_mode\": true,\n  \"run_kind\": \"verify_only\",\n  \"allow_implementation\": false,\n  \"regressions\": [],\n  \"reopened_criteria\": [],\n  \"ledger_intact\": true,\n  \"why\": \"all success criteria complete; no regression detected\"\n}"
+        },
+        {
+          "action": "refresh-ledger",
+          "ok": true,
+          "summary": "ledger refreshed"
+        },
+        {
+          "action": "self-check",
+          "ok": true,
+          "summary": "pass"
+        },
+        {
+          "action": "run-now",
+          "ok": true,
+          "summary": "{\n  \"ran\": false,\n  \"reason\": \"verify_only_healthy\",\n  \"record\": {\n    \"id\": \"12c06e61\",\n    \"started_at\": \"2026-07-04T01:54:28+00:00\",\n    \"finished_at\": \"2026-07-04T01:54:28+00:00\",\n    \"trigger\": \"manual\",\n    \"status\": \"skipped\",\n    \"cycle_id\": null,\n    \"error\": \"verify_only_healthy\",\n    \"retry_count\": 0,\n    \"outcome_class\": \"verify_only_healthy\",\n    \"why_run\": \"all success criteria complete; no regression detected\",\n    \"decision_id\": \"de428b37\"\n  },\n  \"sequence_entry\": {\n    \"id\": \"de"
+        },
+        {
+          "action": "run-due",
+          "ok": true,
+          "summary": "{\n  \"ran\": false,\n  \"reason\": \"no_due_slot\",\n  \"record\": {\n    \"id\": \"1337f0f9\",\n    \"started_at\": \"2026-07-04T01:54:28+00:00\",\n    \"finished_at\": \"2026-07-04T01:54:28+00:00\",\n    \"trigger\": \"scheduled\",\n    \"status\": \"skipped\",\n    \"cycle_id\": null,\n    \"error\": \"no_due_slot\",\n    \"retry_count\": 0,\n    \"outcome_class\": \"no_due_slot\",\n    \"decision_id\": \"606b1c69\"\n  },\n  \"sequence_entry\": {\n    \"id\": \"606b1c69\",\n    \"started_at\": \"2026-07-04T01:54:28+00:00\",\n    \"finished_at\": \"2026-07-04T01:54:"
+        }
+      ],
+      "final_health": "hold",
+      "final_kind": "verify_only",
+      "final_ledger_intact": true
+    },
+    {
+      "session": 3,
+      "steps": [
+        {
+          "action": "GET /api/status/overview",
+          "ok": true
+        },
+        {
+          "action": "GET /api/status/runs",
+          "ok": true
+        },
+        {
+          "action": "GET /api/status/goal-ledger",
+          "ok": true
+        },
+        {
+          "action": "GET /api/status/diagnostics",
+          "ok": true
+        },
+        {
+          "action": "GET /api/config/schedule",
+          "ok": true
+        },
+        {
+          "action": "GET /api/config/budget",
+          "ok": true
+        },
+        {
+          "action": "pause",
+          "ok": true,
+          "summary": "autonomy paused"
+        },
+        {
+          "action": "resume",
+          "ok": true,
+          "summary": "autonomy resumed"
+        },
+        {
+          "action": "verify",
+          "ok": true,
+          "summary": "{\n  \"production_hold_mode\": true,\n  \"run_kind\": \"verify_only\",\n  \"allow_implementation\": false,\n  \"regressions\": [],\n  \"reopened_criteria\": [],\n  \"ledger_intact\": true,\n  \"why\": \"all success criteria complete; no regression detected\"\n}"
+        },
+        {
+          "action": "refresh-ledger",
+          "ok": true,
+          "summary": "ledger refreshed"
+        },
+        {
+          "action": "self-check",
+          "ok": true,
+          "summary": "pass"
+        },
+        {
+          "action": "run-now",
+          "ok": true,
+          "summary": "{\n  \"ran\": false,\n  \"reason\": \"verify_only_healthy\",\n  \"record\": {\n    \"id\": \"811a5044\",\n    \"started_at\": \"2026-07-04T01:54:31+00:00\",\n    \"finished_at\": \"2026-07-04T01:54:31+00:00\",\n    \"trigger\": \"manual\",\n    \"status\": \"skipped\",\n    \"cycle_id\": null,\n    \"error\": \"verify_only_healthy\",\n    \"retry_count\": 0,\n    \"outcome_class\": \"verify_only_healthy\",\n    \"why_run\": \"all success criteria complete; no regression detected\",\n    \"decision_id\": \"2710d76a\"\n  },\n  \"sequence_entry\": {\n    \"id\": \"27"
+        },
+        {
+          "action": "run-due",
+          "ok": true,
+          "summary": "{\n  \"ran\": false,\n  \"reason\": \"no_due_slot\",\n  \"record\": {\n    \"id\": \"b534f17c\",\n    \"started_at\": \"2026-07-04T01:54:32+00:00\",\n    \"finished_at\": \"2026-07-04T01:54:32+00:00\",\n    \"trigger\": \"scheduled\",\n    \"status\": \"skipped\",\n    \"cycle_id\": null,\n    \"error\": \"no_due_slot\",\n    \"retry_count\": 0,\n    \"outcome_class\": \"no_due_slot\",\n    \"decision_id\": \"371f5cdf\"\n  },\n  \"sequence_entry\": {\n    \"id\": \"371f5cdf\",\n    \"started_at\": \"2026-07-04T01:54:32+00:00\",\n    \"finished_at\": \"2026-07-04T01:54:"
+        }
+      ],
+      "final_health": "hold",
+      "final_kind": "verify_only",
+      "final_ledger_intact": true
+    }
+  ],
+  "failures": [],
+  "cli_fallbacks": [],
+  "ui_operator_ready": true,
+  "completed_at": "2026-07-04T01:54:32+00:00",
+  "closeout_notes": [
+    {
+      "at": "2026-07-04T20:46:52+00:00",
+      "kind": "cross_repo_simple_ui_closeout",
+      "surface": "browser_simple_ui (playwright/chromium headless)",
+      "engineering_console": false,
+      "repos": [
+        {
+          "name": "agent",
+          "url": "http://127.0.0.1:8854/",
+          "port": 8854,
+          "unit": "purple-halo-agent.service",
+          "report_path": "/home/sketch/Projects/agent/RUN_REPORT.md",
+          "browser_ok": true,
+          "checks": "repo+ui_url+service+report visible; goal preview; frequency save; play\u2192Playing; pause\u2192Paused; resume\u2192Playing; report readable in UI"
+        },
+        {
+          "name": "mimir",
+          "url": "http://127.0.0.1:8860/",
+          "port": 8860,
+          "unit": "purple-halo-mimir.service",
+          "report_path": "/home/sketch/Projects/mimir/RUN_REPORT.md",
+          "browser_ok": true,
+          "checks": "same as agent"
+        },
+        {
+          "name": "atlas",
+          "url": "http://127.0.0.1:8827/",
+          "port": 8827,
+          "unit": "purple-halo-atlas.service",
+          "report_path": "/home/sketch/Projects/atlas/RUN_REPORT.md",
+          "browser_ok": true,
+          "checks": "same as agent"
+        }
+      ],
+      "regression": {
+        "operator_api_self_check": "PASS",
+        "operator_dogfood_self_check": "PASS",
+        "services": "purple-halo-agent/mimir/atlas active"
+      },
+      "report_format": {
+        "issue": "agent RUN_REPORT had truncated JSON Failed line",
+        "fix": "scripts/run_report.py _failure_summary uses stop_reason/stop_detail",
+        "sample_before": "070426 1632 Failed: {   \"stopped\": true,   \"stop_reason\": \"no_executable_work\"...",
+        "sample_after": "Failed (no_executable_work; backlog_empty)"
+      }
+    }
+  ]
+}
