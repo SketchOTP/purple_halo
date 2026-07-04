@@ -1,0 +1,26 @@
+[Unit]
+Description=purple_halo operator service (API/UI + schedule ticker)
+Documentation=file:///home/sketch/Projects/purple_halo/AGENTS.md
+After=default.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+WorkingDirectory=/home/sketch/Projects/purple_halo
+Environment=PYTHONPATH=/home/sketch/Projects/purple_halo/scripts
+Environment=MIMIR_ENDPOINT=
+Environment=PYTHONUNBUFFERED=1
+ExecStartPre=/usr/bin/python3 /home/sketch/Projects/purple_halo/scripts/operator_runtime.py --health
+ExecStart=/usr/bin/python3 /home/sketch/Projects/purple_halo/scripts/operator_service.py --host 127.0.0.1 --port 8765
+Restart=always
+RestartSec=3
+TimeoutStartSec=180
+TimeoutStopSec=20
+KillMode=mixed
+# Preserve runtime state on disk; do not wipe project_memory.
+StandardOutput=append:/home/sketch/Projects/purple_halo/project_memory/runtime/service.log
+StandardError=append:/home/sketch/Projects/purple_halo/project_memory/runtime/service.log
+
+[Install]
+WantedBy=default.target

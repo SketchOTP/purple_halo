@@ -41,6 +41,19 @@ systemctl --user restart purple-halo-operator.service
 
 If the UI is unreachable, restart the service once it returns.
 
+### Operator smoke (v1)
+
+Run after install or update — no engineering console required:
+
+```bash
+python3 scripts/operator_api.py --self-check
+python3 scripts/ph_cli.py status
+python3 scripts/ph_cli.py report
+systemctl --user status purple-halo-operator.service   # self checkout; use purple-halo-<repo>.service for installed repos
+```
+
+Self checkout: UI http://127.0.0.1:8765/ · service `purple-halo-operator.service`.
+
 ---
 
 ## Secondary: Engineering console
