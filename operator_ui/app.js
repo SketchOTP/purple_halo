@@ -31,25 +31,40 @@ function setBusy(busy) {
   });
 }
 
-function serviceLabel(st) {
-  const state = (st.service_state || "unknown").toLowerCase();
-  const unit = st.service_unit || "purple-halo-operator.service";
-  const labels = { up: "Running", running: "Running", down: "Stopped", failed: "Failed", restarting: "Restarting" };
-  return `${labels[state] || state} · ${unit}`;
-}
-
-function formatLastRun(last) {
-  if (!last || typeof last !== "object" || !Object.keys(last).length) return "";
-  const when = last.finished_at || last.started_at || "";
-  const status = last.status || last.result || "";
-  const err = last.error || "";
-  return `Last run: ${[when, status, err].filter(Boolean).join(" · ")}`;
+function renderServiceLed(st) {
+  const svcUp = /up|running/i.test(st.service_state || "");
+  const svcLed = $("serviceLed");
+  svcLed.className = "service-led " + (svcUp ? "up" : "down");
+  svcLed.title = svcUp ? "Service running" : "Service not running";
 }
 
 function setStepState(id, ready) {
   const el = $(id);
   if (!el) return;
   el.classList.toggle("ready", !!ready);
+}
+
+function renderRunChart(report) {
+  const chart = $("runChart");
+  chart.innerHTML = "";
+  const lines = (report || "")
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .slice(-20);
+  if (!lines.length) {
+    chart.classList.add("empty");
+    return;
+  }
+  chart.classList.remove("empty");
+  lines.forEach((line) => {
+    const bar = document.createElement("div");
+    const fail = /fail|error|block/i.test(line);
+    bar.className = "run-bar" + (fail ? " fail" : "");
+    bar.style.height = `${Math.min(24 + line.length * 0.5, 100)}%`;
+    bar.title = line;
+    chart.appendChild(bar);
+  });
 }
 
 function renderInstallResult(result) {
@@ -64,51 +79,28 @@ function renderInstallResult(result) {
   summary.textContent = result.message || "Installed.";
   const install = result.install || {};
   const lines = [];
-  if (install.repo) lines.push(`repo: ${install.repo}`);
-  if (install.ui_url) lines.push(`ui: ${install.ui_url}`);
-  if (install.port) lines.push(`port: ${install.port}`);
-  if (install.unit) lines.push(`service: ${install.unit}`);
+  if (install.ui_url) lines.push(install.ui_url);
+  if (install.port) lines.push(`port ${install.port}`);
   if (result.stdout) lines.push("", result.stdout.trim());
-  details.textContent = lines.join("\n") || "(no install details)";
+  details.textContent = lines.join("\n") || "";
 }
 
 function render(st) {
   const repo = st.repo || "";
-  $("thisRepo").value = repo;
-  $("instanceRepo").textContent = st.repo_name ? `${st.repo_name} — ${repo}` : repo || "(unknown)";
-  const uiUrl = st.ui_url || window.location.origin + "/";
-  const urlEl = $("instanceUrl");
-  urlEl.href = uiUrl;
-  urlEl.textContent = uiUrl;
-  $("instanceService").textContent = serviceLabel(st);
-  $("instanceService").className = "instance-value " + ((st.service_state || "").match(/up|running/i) ? "ok" : "warn");
-  $("instanceReport").textContent = st.report_path || "RUN_REPORT.md";
-
-  $("badge").textContent = st.playing ? "Playing" : st.campaign_stop_reason ? "Stopped" : "Paused";
-  $("badge").className = "badge " + (st.playing ? "on" : st.campaign_stop_reason ? "stopped" : "off");
 
   if (st.every_hours != null) $("everyHours").value = st.every_hours;
   if (st.for_days != null) $("forDays").value = st.for_days;
   $("untilGoal").checked = !!st.until_goal_achieved;
 
   if (st.goal_source) $("goalPath").value = st.goal_source;
-  $("goalPreview").textContent = st.goal_preview || "(no goal file yet — add project_goals.md or import a goal)";
+  $("goalPreview").textContent = st.goal_preview || "";
 
-  const bits = [];
-  bits.push(st.playing ? "Auto-run is on" : "Auto-run is off");
-  if (st.every_hours) bits.push(`every ${st.every_hours}h`);
-  if (st.for_days != null) bits.push(`for ${st.for_days} days`);
-  if (st.until_goal_achieved) bits.push("or until goal");
-  if (st.campaign_started_at) bits.push(`started ${st.campaign_started_at}`);
-  if (st.campaign_stop_reason) bits.push(`stopped: ${st.campaign_stop_reason}`);
-  $("statusLine").textContent = bits.join(" · ");
-  $("lastRunLine").textContent = formatLastRun(st.last_run);
+  renderServiceLed(st);
 
   const runCount = st.run_count || 0;
-  $("reportMeta").textContent = runCount
-    ? `${runCount} run${runCount === 1 ? "" : "s"} recorded`
-    : "No runs recorded yet";
-  $("report").textContent = st.report || "(no report yet — press Play or Run once now)";
+  $("reportMeta").textContent = runCount ? `${runCount} runs` : "";
+  renderRunChart(st.report);
+  $("report").textContent = st.report || "";
   $("report").scrollTop = $("report").scrollHeight;
 
   setStepState("stepRepo", !!repo);

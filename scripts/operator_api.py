@@ -605,7 +605,7 @@ def simple_status() -> dict[str, Any]:
     goal_path = ROOT / "project_goals.md"
     goal_preview = ""
     if goal_path.is_file():
-        goal_preview = goal_path.read_text(encoding="utf-8")[:800]
+        goal_preview = goal_path.read_text(encoding="utf-8")
     report = ""
     if REPORT_PATH.is_file():
         report = REPORT_PATH.read_text(encoding="utf-8")

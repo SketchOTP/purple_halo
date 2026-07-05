@@ -61,24 +61,26 @@ def ensure_production_freeze_mode() -> dict[str, Any]:
     return history
 
 
-def release_gate() -> dict[str, Any]:
+def release_gate(*, skip_health: bool = False) -> dict[str, Any]:
     """Canonical v1 release gate status."""
     ensure_production_freeze_mode()
     history = _load_history()
 
-    # Self-check health: lightweight import/runtime probes (not full suite).
     self_check_ok = True
     self_check_errors: list[str] = []
-    try:
-        from operator_runtime import startup_health_checks
+    if skip_health:
+        pass  # ponytail: caller is startup_health_checks; avoid recursive re-load of history
+    else:
+        try:
+            from operator_runtime import read_service_status
 
-        health = startup_health_checks()
-        if not health.get("ok"):
+            cached = read_service_status().get("health") or {}
+            self_check_ok = bool(cached.get("ok"))
+            if not self_check_ok:
+                self_check_errors.append("cached service health not ok")
+        except Exception as exc:
             self_check_ok = False
-            self_check_errors.append("startup_health_checks failed")
-    except Exception as exc:
-        self_check_ok = False
-        self_check_errors.append(str(exc)[:200])
+            self_check_errors.append(str(exc)[:200])
 
     open_regressions: list[dict[str, Any]] = []
     try:

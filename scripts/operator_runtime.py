@@ -14,6 +14,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent.parent
 RUNTIME = ROOT / "project_memory" / "runtime"
 SERVICE_STATUS = RUNTIME / "service_status.json"
+STARTUP_HEALTH_STAMP = RUNTIME / "startup_health_stamp.json"
 INSTALL_META = RUNTIME / "install_meta.json"
 SLOT_LOCK = RUNTIME / "schedule_slot_lock.json"
 
@@ -88,6 +89,28 @@ def read_service_status() -> dict[str, Any]:
             "health": {},
         },
     )
+
+
+def write_startup_health_stamp(health: dict[str, Any]) -> None:
+    save_json_atomic(STARTUP_HEALTH_STAMP, {"health": health, "written_at": _now()})
+
+
+def read_startup_health_stamp(*, max_age_sec: int = 300) -> dict[str, Any] | None:
+    """Health from recent ExecStartPre; avoids duplicate full checks on service start."""
+    stamp = load_json_safe(STARTUP_HEALTH_STAMP)
+    health = stamp.get("health")
+    if not isinstance(health, dict) or not health.get("ok"):
+        return None
+    written_at = str(stamp.get("written_at") or "")
+    if not written_at:
+        return None
+    try:
+        age = (datetime.now(timezone.utc) - datetime.fromisoformat(written_at)).total_seconds()
+    except ValueError:
+        return None
+    if age > max_age_sec:
+        return None
+    return health
 
 
 def repo_slug(name: str) -> str:
@@ -209,7 +232,7 @@ def startup_health_checks() -> dict[str, Any]:
         from production_freeze import ensure_production_freeze_mode, release_gate
 
         ensure_production_freeze_mode()
-        gate = release_gate()
+        gate = release_gate(skip_health=True)
         checks["production_freeze_mode"] = bool(gate.get("production_freeze_mode"))
         checks["release_ready"] = bool(gate.get("release_ready"))
     except Exception as exc:
@@ -245,6 +268,7 @@ if __name__ == "__main__":
         self_check()
     elif args.health:
         health = startup_health_checks()
+        write_startup_health_stamp(health)
         print(json.dumps(health, indent=2))
         raise SystemExit(0 if health.get("ok") else 1)
     else:

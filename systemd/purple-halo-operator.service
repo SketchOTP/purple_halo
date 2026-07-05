@@ -12,7 +12,7 @@ Environment=PYTHONPATH=/home/sketch/Projects/purple_halo/scripts
 Environment=MIMIR_ENDPOINT=
 Environment=PYTHONUNBUFFERED=1
 ExecStartPre=/usr/bin/python3 /home/sketch/Projects/purple_halo/scripts/operator_runtime.py --health
-ExecStart=/usr/bin/python3 /home/sketch/Projects/purple_halo/scripts/operator_service.py --host 127.0.0.1 --port 8765
+ExecStart=/usr/bin/python3 /home/sketch/Projects/purple_halo/scripts/operator_service.py --host 127.0.0.1 --port 8765 --skip-startup-health
 Restart=always
 RestartSec=3
 TimeoutStartSec=180

@@ -3,129 +3,122 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>purple_halo — Autonomous repo operator</title>
+  <title>purple_halo</title>
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
-  <main class="wrap">
+  <main class="wrap vcr-chassis">
     <header class="top">
-      <div>
-        <p class="eyebrow">Autonomous repo operator</p>
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
         <h1>purple_halo</h1>
-        <p class="sub">Install → goal → frequency → Play → report. One surface for any repo.</p>
       </div>
       <div class="top-right">
-        <span id="badge" class="badge">…</span>
+        <span id="serviceLed" class="service-led" title="Service status" aria-label="Service status"></span>
+        <a class="icon-link quiet" href="/advanced.html" title="Engine console" aria-label="Engine console">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 3h2v3h-2v-3zm4 0h2v3h-2v-3zm-4-3h6v2h-6v-2z"/></svg>
+        </a>
       </div>
     </header>
 
-    <section class="instance-bar" aria-label="Instance">
-      <div class="instance-grid">
-        <div class="instance-item">
-          <span class="instance-label">Controlling repo</span>
-          <span id="instanceRepo" class="instance-value mono">…</span>
-        </div>
-        <div class="instance-item">
-          <span class="instance-label">This UI</span>
-          <a id="instanceUrl" class="instance-value mono link" href="#">…</a>
-        </div>
-        <div class="instance-item">
-          <span class="instance-label">Service</span>
-          <span id="instanceService" class="instance-value">…</span>
-        </div>
-        <div class="instance-item">
-          <span class="instance-label">Report file</span>
-          <span id="instanceReport" class="instance-value mono">…</span>
-        </div>
-      </div>
-    </section>
-
     <p id="flash" class="flash" hidden></p>
 
-    <ol class="flow" aria-label="Setup steps">
-      <li class="flow-step" id="stepRepo">
-        <section class="card">
-          <h2><span class="step-num">1</span> Repo</h2>
-          <p class="hint">This page controls the repo shown above. Install purple_halo into another project to run it there.</p>
-          <label>This instance
-            <input id="thisRepo" type="text" readonly />
-          </label>
-          <div class="row">
-            <label class="grow">Install into another repo
-              <input id="installRepo" type="text" placeholder="/path/to/your/project" />
-            </label>
-            <button id="btnInstall" type="button" class="secondary">Install</button>
+    <div class="product-grid" aria-label="Operator">
+      <!-- Row 1: Play — full width, centered -->
+      <section class="card play-panel span-2" id="stepPlay">
+        <div class="play-center">
+          <div class="vcr-deck" role="group" aria-label="Transport controls">
+            <button id="btnPlay" type="button" class="vcr-btn vcr-play" aria-label="Play">
+              <span class="vcr-face"><span class="vcr-glyph vcr-glyph-play" aria-hidden="true"></span></span>
+              <span class="vcr-label">Play</span>
+            </button>
+            <button id="btnPause" type="button" class="vcr-btn vcr-pause" aria-label="Pause">
+              <span class="vcr-face"><span class="vcr-glyph vcr-glyph-pause" aria-hidden="true"></span></span>
+              <span class="vcr-label">Pause</span>
+            </button>
+            <button id="btnRunOnce" type="button" class="vcr-btn vcr-once" aria-label="Run once now">
+              <span class="vcr-face"><span class="vcr-glyph vcr-glyph-once" aria-hidden="true"></span></span>
+              <span class="vcr-label">Once</span>
+            </button>
           </div>
-          <div id="installNote" class="install-result" hidden>
-            <p id="installSummary" class="note"></p>
-            <pre id="installDetails" class="install-details"></pre>
+        </div>
+      </section>
+
+      <!-- Repo | Schedule -->
+      <div class="flow-step" id="stepRepo">
+        <section class="card card-fill">
+          <h2 class="section-head">Install</h2>
+          <div class="panel-body">
+            <label class="panel-field">Into another repo
+              <input id="installRepo" type="text" placeholder="/path/to/project" />
+            </label>
+            <div class="panel-spacer" aria-hidden="true"></div>
+            <button id="btnInstall" type="button" class="secondary action-icon-btn panel-action" aria-label="Install" title="Install">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+            </button>
+            <div id="installNote" class="install-result" hidden>
+              <p id="installSummary" class="note"></p>
+              <pre id="installDetails" class="install-details"></pre>
+            </div>
           </div>
         </section>
-      </li>
-      <li class="flow-step" id="stepGoal">
-        <section class="card">
-          <h2><span class="step-num">2</span> Goal</h2>
-          <p class="hint">Point at a goal file. It is copied to <code>project_goals.md</code> in the controlled repo.</p>
-          <div class="row">
-            <label class="grow">Goal file
-              <input id="goalPath" type="text" placeholder="/path/to/goals.md" />
-            </label>
-            <button id="btnGoal" type="button" class="secondary">Use this goal</button>
-          </div>
-          <pre id="goalPreview" class="preview"></pre>
-        </section>
-      </li>
-      <li class="flow-step" id="stepFrequency">
-        <section class="card">
-          <h2><span class="step-num">3</span> How often</h2>
-          <div class="row fields">
-            <label>Every
-              <span class="inline">
-                <input id="everyHours" type="number" min="0.25" step="0.25" value="2" />
-                <span>hours</span>
-              </span>
-            </label>
-            <label>For
-              <span class="inline">
-                <input id="forDays" type="number" min="1" step="1" value="10" />
-                <span>days</span>
-              </span>
-            </label>
+      </div>
+
+      <div class="flow-step" id="stepFrequency">
+        <section class="card card-fill">
+          <h2 class="section-head">Schedule</h2>
+          <div class="panel-body">
+            <div class="field-row">
+              <label>Every
+                <span class="inline">
+                  <input id="everyHours" type="number" min="0.25" step="0.25" value="2" />
+                  <span>hours</span>
+                </span>
+              </label>
+              <label>For
+                <span class="inline">
+                  <input id="forDays" type="number" min="1" step="1" value="10" />
+                  <span>days</span>
+                </span>
+              </label>
+            </div>
             <label class="check">
               <input id="untilGoal" type="checkbox" checked />
               Stop when goal is achieved
             </label>
+            <button id="btnFrequency" type="button" class="secondary action-icon-btn panel-action" aria-label="Save schedule" title="Save schedule">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>
+            </button>
           </div>
-          <p class="hint">Stops at the day limit or when the goal is done — whichever comes first.</p>
-          <button id="btnFrequency" type="button" class="secondary">Save schedule</button>
         </section>
-      </li>
-      <li class="flow-step" id="stepPlay">
-        <section class="card play-card">
-          <h2><span class="step-num">4</span> Play</h2>
-          <div class="play-row">
-            <button id="btnPlay" type="button" class="primary">Play</button>
-            <button id="btnPause" type="button" class="secondary">Pause</button>
-            <button id="btnRunOnce" type="button" class="ghost">Run once now</button>
-          </div>
-          <p id="statusLine" class="status-line"></p>
-          <p id="lastRunLine" class="status-line subtle"></p>
-        </section>
-      </li>
-    </ol>
-
-    <section class="card report-card">
-      <h2>Report</h2>
-      <p class="hint">Each run appends one line to <code>RUN_REPORT.md</code>: <code>MMDDYY HHMM</code> + summary.</p>
-      <div class="report-meta">
-        <span id="reportMeta" class="subtle"></span>
       </div>
-      <pre id="report" class="report"></pre>
-    </section>
 
-    <footer class="footer">
-      <p>Engineering / debugging only: <a class="quiet" href="/advanced.html">Engine console</a> (hold, ledger, budget, self-checks).</p>
-    </footer>
+      <!-- Row 4: Goal — full width -->
+      <div class="flow-step span-2" id="stepGoal">
+        <section class="card">
+          <h2 class="section-head">Goal</h2>
+          <div class="row">
+            <label class="grow">Goal file
+              <input id="goalPath" type="text" placeholder="/path/to/goals.md" />
+            </label>
+            <button id="btnGoal" type="button" class="secondary action-icon-btn" aria-label="Use goal" title="Use goal">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+            </button>
+          </div>
+          <pre id="goalPreview" class="preview"></pre>
+        </section>
+      </div>
+
+      <!-- Row 5: Report — full width -->
+      <section class="card report-card span-2">
+        <h2 class="section-head">
+          Report
+          <span id="reportMeta" class="report-count"></span>
+        </h2>
+        <div id="runChart" class="run-chart" aria-label="Recent runs"></div>
+        <pre id="report" class="report"></pre>
+      </section>
+    </div>
   </main>
   <script src="/app.js"></script>
 </body>

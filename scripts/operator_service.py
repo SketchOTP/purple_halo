@@ -18,7 +18,7 @@ SCRIPTS = ROOT / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
 from operator_runtime import (  # noqa: E402
-    read_service_status,
+    read_startup_health_stamp,
     service_unit_for_repo,
     startup_health_checks,
     write_service_status,
@@ -52,6 +52,7 @@ def main() -> int:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--no-ticker", action="store_true")
+    parser.add_argument("--skip-startup-health", action="store_true")
     parser.add_argument("--self-check", action="store_true")
     args = parser.parse_args()
 
@@ -63,7 +64,9 @@ def main() -> int:
 
     write_service_status(state="starting", last_failure="", pid=__import__("os").getpid(), unit=service_unit_for_repo(ROOT))
     try:
-        health = startup_health_checks()
+        health = read_startup_health_stamp() if args.skip_startup_health else None
+        if health is None:
+            health = startup_health_checks()
         write_service_status(health=health)
         if not health.get("ok"):
             write_service_status(
