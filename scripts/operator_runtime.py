@@ -7,6 +7,7 @@ import json
 import os
 import re
 import shutil
+import hashlib
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -133,7 +134,8 @@ def service_unit_for_repo(root: Path | None = None) -> str:
         return unit
     if root.name == "purple_halo":
         return "purple-halo-operator.service"
-    return f"purple-halo-{repo_slug(root.name)}.service"
+    identity = hashlib.sha256(str(root.resolve()).encode("utf-8")).hexdigest()[:8]
+    return f"purple-halo-{repo_slug(root.name)}-{identity}.service"
 
 
 def claim_schedule_slot(slot_at: str, *, today: str | None = None) -> dict[str, Any]:

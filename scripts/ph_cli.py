@@ -48,6 +48,8 @@ def parse_every(text: str) -> float:
     if not m:
         raise SystemExit(f"cannot parse interval: {text!r} (try 2h, 30m, 1d)")
     value = float(m.group(1))
+    if value <= 0:
+        raise SystemExit("interval must be greater than zero")
     unit = m.group(2) or "h"
     if unit.startswith("m"):
         return value / 60.0
@@ -88,6 +90,8 @@ def set_schedule_config(
             at = str(slot.get("at") or "").strip()
             if not at:
                 continue
+            if not re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", at):
+                raise SystemExit(f"invalid run time: {at!r} (use HH:MM)")
             entry: dict[str, Any] = {"at": at}
             days = slot.get("days")
             if days:

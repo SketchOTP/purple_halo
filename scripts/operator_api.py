@@ -8,6 +8,7 @@ import subprocess
 import sys
 import traceback
 import os
+import secrets
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -19,6 +20,22 @@ UI_DIR = ROOT / "operator_ui"
 SCRIPTS = ROOT / "scripts"
 HOST = "127.0.0.1"
 PORT = 8765
+API_TOKEN_PATH = RUNTIME / "operator_api.token"
+
+
+def _api_token() -> str:
+    configured = os.environ.get("PURPLE_HALO_API_TOKEN", "").strip()
+    if configured:
+        return configured
+    if API_TOKEN_PATH.is_file():
+        token = API_TOKEN_PATH.read_text(encoding="utf-8").strip()
+        if token:
+            return token
+    token = secrets.token_urlsafe(32)
+    API_TOKEN_PATH.parent.mkdir(parents=True, exist_ok=True)
+    API_TOKEN_PATH.write_text(token + "\n", encoding="utf-8")
+    API_TOKEN_PATH.chmod(0o600)
+    return token
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -877,6 +894,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(raw)))
+        self.send_header("Set-Cookie", f"ph_session={_api_token()}; HttpOnly; SameSite=Strict; Path=/")
         self._cors()
         self.end_headers()
         self.wfile.write(raw)
@@ -896,6 +914,7 @@ class Handler(BaseHTTPRequestHandler):
         elif path.suffix == ".svg":
             ctype = "image/svg+xml"
         self.send_response(200)
+        self.send_header("Set-Cookie", f"ph_session={_api_token()}; HttpOnly; SameSite=Strict; Path=/")
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
@@ -939,8 +958,10 @@ class Handler(BaseHTTPRequestHandler):
         if path not in ROUTES_POST:
             self._json(404, {"ok": False, "error": "not found", "path": path})
             return
-        expected = os.environ.get("PURPLE_HALO_API_TOKEN", "").strip()
-        if expected and self.headers.get("Authorization") != f"Bearer {expected}":
+        expected = _api_token()
+        cookies = self.headers.get("Cookie", "")
+        cookie_token = next((part.split("=", 1)[1] for part in cookies.split("; ") if part.startswith("ph_session=")), "")
+        if self.headers.get("Authorization") != f"Bearer {expected}" and cookie_token != expected:
             self._json(401, {"ok": False, "error": "authentication required"})
             return
         try:

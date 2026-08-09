@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Governed implementation worker bridge for purple_halo loop cycles. Stdlib only."""
 from __future__ import annotations
-import argparse, json, os, subprocess, sys
+import argparse, json, os, shlex, subprocess, sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -24,6 +24,11 @@ def _safe_product_path(rel_path: str) -> Path:
     if resolved != root and root not in resolved.parents:
         raise ValueError(f"worker path escapes product root: {rel_path}")
     return resolved
+
+
+def _run_argv(command: list[str]) -> dict[str, Any]:
+    proc = subprocess.run(command, cwd=PRODUCT_ROOT, shell=False, capture_output=True, text=True)
+    return {"command": shlex.join(command), "exit_code": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr}
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
@@ -220,8 +225,8 @@ def run_worker_bridge(*, plan, work_package, cycle_id, work_package_path, dry_ru
         for step in contract.get("execution_steps") or []:
             if step.get("type") == "run_command":
                 cmd = list(step["command"])
-                cmd_text = _runtime_shell_command(" ".join(cmd))
-                tracked = _execute_with_tracking(orchestrator=orchestrator, metadata=metadata, tool_name="shell.worker", command=cmd_text, action_class="worker_run_command", target_paths=list(contract.get("target_files") or []))
+                cmd_text = shlex.join(cmd)
+                tracked = _execute_with_tracking(orchestrator=orchestrator, metadata=metadata, tool_name="shell.worker", command=cmd_text, action_class="worker_run_command", target_paths=list(contract.get("target_files") or []), executor=lambda cmd=cmd: _run_argv(cmd))
                 commands_run.append({"command": cmd, "exit_code": tracked.get("exit_code", 1), "ok": bool(tracked.get("ok"))})
                 if not tracked.get("ok"):
                     impl_errors.append("run_command failed: " + " ".join(cmd))
@@ -239,10 +244,10 @@ def run_worker_bridge(*, plan, work_package, cycle_id, work_package_path, dry_ru
                 changed_files.append(rel)
 
         for cmd in contract.get("verification_commands") or []:
-            cmd_text = _runtime_shell_command(" ".join(cmd))
-            tracked = _execute_with_tracking(orchestrator=orchestrator, metadata=metadata, tool_name="shell.verify", command=cmd_text, action_class="worker_verify", target_paths=list(changed_files or contract.get("target_files") or []))
+            cmd_text = shlex.join(cmd)
+            tracked = _execute_with_tracking(orchestrator=orchestrator, metadata=metadata, tool_name="shell.verify", command=cmd_text, action_class="worker_verify", target_paths=list(changed_files or contract.get("target_files") or []), executor=lambda cmd=cmd: _run_argv(cmd))
             commands_run.append({"command": cmd, "exit_code": tracked.get("exit_code", 1), "ok": bool(tracked.get("ok"))})
-            verification_output.append(_verification_result_from_command(" ".join(cmd), tracked, blocked_reason=str(tracked.get("error") or "") if tracked.get("blocked") else None))
+            verification_output.append(_verification_result_from_command(cmd_text, tracked, blocked_reason=str(tracked.get("error") or "") if tracked.get("blocked") else None))
         for rel in metadata.get("changed_files") or []:
             if rel not in changed_files:
                 changed_files.append(rel)
