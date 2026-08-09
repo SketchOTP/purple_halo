@@ -86,11 +86,12 @@ def _verify_done_when(done_when: list[str], changed: list[str]) -> list[dict[str
             )
         elif criterion.startswith("command passes: "):
             cmd_str = criterion[len("command passes: ") :].strip()
+            result = _run(cmd_str.split())
             checks.append(
                 {
                     "criterion": f"done_when: {criterion}",
-                    "passed": True,
-                    "detail": f"delegated to verification_commands ({cmd_str})",
+                    "passed": result["exit_code"] == 0,
+                    "detail": result["stdout"] or result["stderr"],
                 }
             )
         elif criterion.startswith("changed: "):
@@ -178,19 +179,19 @@ def _verify_handler_outputs(
         )
 
     for key in hints.get("required_keys") or []:
-        # ponytail: only checks first output file for key presence
         outputs = hints.get("output_files") or package.get("expected_outputs") or []
-        passed = False
-        detail = "no output file"
-        if outputs:
-            path = PRODUCT_ROOT / outputs[0]
+        passed = bool(outputs)
+        details = []
+        for rel in outputs:
+            path = PRODUCT_ROOT / rel
+            ok = False
             if path.is_file():
                 try:
-                    payload = json.loads(path.read_text(encoding="utf-8"))
-                    passed = key in payload
-                    detail = f"key {key} in {outputs[0]}"
+                    ok = key in json.loads(path.read_text(encoding="utf-8"))
                 except (OSError, json.JSONDecodeError):
-                    detail = "invalid json"
+                    ok = False
+            passed = passed and ok
+            details.append(f"{rel}={ok}")
         checks.append(
             {
                 "criterion": f"handler output key: {key}",
@@ -553,22 +554,7 @@ def run_verify(*, plan: dict[str, Any], execution: dict[str, Any]) -> dict[str, 
         or execution.get("local_only")
         or str(plan.get("backlog_work_id") or "") == "product_cycle_closure"
     )
-    if local_only:
-        for item in checks:
-            crit = str(item.get("criterion") or "")
-            if crit.startswith("proposed_repo_delta:") or crit.startswith("expected_repo_delta:"):
-                rel = crit.split(": ", 1)[-1]
-                item["passed"] = (PRODUCT_ROOT / rel).is_file()
-                item["detail"] = "local_only exists=" + str((PRODUCT_ROOT / rel).is_file())
-            elif crit == "meaningful repo delta":
-                item["passed"] = bool(execution.get("ok") or execution.get("meaningful_repo_delta"))
-                item["detail"] = "local_only capability verification"
-            elif crit == "code_implementation changed product code":
-                item["passed"] = True
-                item["detail"] = "local_only pre-landed capability"
-            elif crit == "milestone outcome matches plan claim":
-                item["passed"] = bool(execution.get("ok")) and execution.get("plan_id") == plan.get("plan_id")
-                item["detail"] = "local_only execution_ok=" + str(execution.get("ok"))
+    # local_only changes the routing policy, never the evidence standard.
     passed = all(item["passed"] for item in checks) if checks else False
     package_checks = [
         c

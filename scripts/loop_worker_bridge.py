@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Governed implementation worker bridge for purple_halo loop cycles. Stdlib only."""
 from __future__ import annotations
-import argparse, json, os, subprocess, sys
+import argparse, json, os, shlex, subprocess, sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -14,6 +14,21 @@ PRODUCT_ROOT = product_root()
 OUTCOME_CLASSES = frozenset({"verified_complete", "verified_partial", "verification_failed", "execution_failed", "worker_unavailable"})
 WORKER_EXEMPT_WORK_IDS = frozenset({"product_dispatch_goal_index"})
 WORKER_HEALTH_CACHE_PATH = CONTROL_ROOT / "project_memory/runtime/worker_health_cache.json"
+
+def _safe_product_path(rel_path: str) -> Path:
+    candidate = Path(rel_path)
+    if candidate.is_absolute():
+        raise ValueError("worker path must be relative")
+    root = PRODUCT_ROOT.resolve()
+    resolved = (root / candidate).resolve()
+    if resolved != root and root not in resolved.parents:
+        raise ValueError(f"worker path escapes product root: {rel_path}")
+    return resolved
+
+
+def _run_argv(command: list[str]) -> dict[str, Any]:
+    proc = subprocess.run(command, cwd=PRODUCT_ROOT, shell=False, capture_output=True, text=True)
+    return {"command": shlex.join(command), "exit_code": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr}
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
@@ -42,8 +57,11 @@ def _cheap_worker_probe() -> tuple[bool, str]:
     session_path = CONTROL_ROOT / "scripts/cursor_session.py"
     if not session_path.is_file():
         return False, "cursor_session.py missing"
-    # ponytail: existence-only probe; upgrade path = lightweight import/ping without governed self-check
-    return True, ""
+    try:
+        from paragon_client import is_configured
+        return is_configured(), "Paragon client is not configured"
+    except Exception as exc:
+        return False, str(exc)
 
 
 def _expensive_worker_probe() -> tuple[bool, str]:
@@ -160,7 +178,7 @@ def _run_local_step(step):
     kind = step.get("type")
     try:
         if kind == "write_file":
-            path = PRODUCT_ROOT / str(step["path"])
+            path = _safe_product_path(str(step["path"]))
             path.parent.mkdir(parents=True, exist_ok=True)
             content = str(step["content"])
             path.write_text(content if content.endswith("\n") else content + "\n", encoding="utf-8")
@@ -188,25 +206,27 @@ def run_worker_bridge(*, plan, work_package, cycle_id, work_package_path, dry_ru
         return result
     impl_errors, commands_run, changed_files, verification_output, session_trace_id = [], [], [], [], ""
     if dry_run:
-        changed_files = list(contract.get("target_files") or [])
-        verification_output = [{"label": "dry-run", "command": "dry-run", "result": "pass", "evidence": "worker dry run"}]
-        outcome = "verified_complete" if changed_files else "execution_failed"
+        verification_output = [{"label": "dry-run", "command": "dry-run", "result": "skipped", "evidence": "preview only"}]
+        outcome = "execution_failed"
         result = _finalize_worker_result({"work_id": contract["work_id"], "outcome_class": outcome, "changed_files": changed_files, "commands_run": commands_run, "verification_output": verification_output, "repo_delta_summary": f"dry-run touched {len(changed_files)} target(s)", "summary": "worker dry run", "trace_id": ""}, contract)
         _persist_worker_artifact(cycle_id, "worker_result.json", result)
         return result
 
-    old_mimir = os.environ.pop("MIMIR_ENDPOINT", None)
     try:
         from cursor_session import _clear_active_session, _default_metadata, _execute_with_tracking, _load_or_start_session, _runtime_shell_command, _verification_result_from_command
+        if not contract.get("execution_steps"):
+            from paragon_client import generate_execution_steps
+            contract["execution_steps"] = generate_execution_steps(contract)
+            _persist_worker_artifact(cycle_id, "worker_contract.json", contract)
         project_slug = str(contract.get("target_repo_slug") or "purple_halo")
-        orchestrator = _load_or_start_session(task=f"purple_halo worker: {contract['objective']}", route="bounded", project=project_slug, fail_closed_navigation=False, new_session=True)
+        orchestrator = _load_or_start_session(task=f"purple_halo worker: {contract['objective']}", route="bounded", project=project_slug, fail_closed_navigation=True, new_session=True)
         session_trace_id = str(orchestrator.trace_id or "")
         metadata = _default_metadata()
         for step in contract.get("execution_steps") or []:
             if step.get("type") == "run_command":
                 cmd = list(step["command"])
-                cmd_text = _runtime_shell_command(" ".join(cmd))
-                tracked = _execute_with_tracking(orchestrator=orchestrator, metadata=metadata, tool_name="shell.worker", command=cmd_text, action_class="worker_run_command", target_paths=list(contract.get("target_files") or []))
+                cmd_text = shlex.join(cmd)
+                tracked = _execute_with_tracking(orchestrator=orchestrator, metadata=metadata, tool_name="shell.worker", command=cmd_text, action_class="worker_run_command", target_paths=list(contract.get("target_files") or []), executor=lambda cmd=cmd: _run_argv(cmd))
                 commands_run.append({"command": cmd, "exit_code": tracked.get("exit_code", 1), "ok": bool(tracked.get("ok"))})
                 if not tracked.get("ok"):
                     impl_errors.append("run_command failed: " + " ".join(cmd))
@@ -224,10 +244,10 @@ def run_worker_bridge(*, plan, work_package, cycle_id, work_package_path, dry_ru
                 changed_files.append(rel)
 
         for cmd in contract.get("verification_commands") or []:
-            cmd_text = _runtime_shell_command(" ".join(cmd))
-            tracked = _execute_with_tracking(orchestrator=orchestrator, metadata=metadata, tool_name="shell.verify", command=cmd_text, action_class="worker_verify", target_paths=list(changed_files or contract.get("target_files") or []))
+            cmd_text = shlex.join(cmd)
+            tracked = _execute_with_tracking(orchestrator=orchestrator, metadata=metadata, tool_name="shell.verify", command=cmd_text, action_class="worker_verify", target_paths=list(changed_files or contract.get("target_files") or []), executor=lambda cmd=cmd: _run_argv(cmd))
             commands_run.append({"command": cmd, "exit_code": tracked.get("exit_code", 1), "ok": bool(tracked.get("ok"))})
-            verification_output.append(_verification_result_from_command(" ".join(cmd), tracked, blocked_reason=str(tracked.get("error") or "") if tracked.get("blocked") else None))
+            verification_output.append(_verification_result_from_command(cmd_text, tracked, blocked_reason=str(tracked.get("error") or "") if tracked.get("blocked") else None))
         for rel in metadata.get("changed_files") or []:
             if rel not in changed_files:
                 changed_files.append(rel)
@@ -238,8 +258,7 @@ def run_worker_bridge(*, plan, work_package, cycle_id, work_package_path, dry_ru
         outcome = "worker_unavailable"
         impl_errors.append(str(exc))
     finally:
-        if old_mimir is not None:
-            os.environ["MIMIR_ENDPOINT"] = old_mimir
+        pass
     summary = "; ".join(impl_errors) if impl_errors else f"worker outcome={outcome}"
     delta = ", ".join(changed_files[:8])
     result = _finalize_worker_result({"work_id": contract["work_id"], "outcome_class": outcome, "changed_files": changed_files, "commands_run": commands_run, "verification_output": verification_output, "repo_delta_summary": f"changed {len(changed_files)} file(s): {delta}", "summary": summary, "trace_id": session_trace_id, "errors": impl_errors, "verification_commands": contract.get("verification_commands") or []}, contract)

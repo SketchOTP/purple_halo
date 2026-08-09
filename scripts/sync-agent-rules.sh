@@ -98,4 +98,8 @@ fi
 # --- Run audit ---
 
 echo "---"
-bash scripts/audit-agent-rules.sh
+if [[ -x scripts/audit-agent-rules.sh ]]; then
+  bash scripts/audit-agent-rules.sh
+else
+  echo "audit-agent-rules: skipped (optional audit script not installed)"
+fi

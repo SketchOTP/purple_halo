@@ -245,13 +245,13 @@ def start_orchestrated_session(
 def _self_check() -> int:
     orchestrator = start_orchestrated_session(
         task="implement session orchestrator trace guard",
-        route="direct",
+        route="bounded",
         project="agent",
         fail_closed_navigation=False,
     )
     allowed = orchestrator.run_tool(
-        tool_name="shell",
-        command="pytest -q",
+        tool_name="read_file",
+        command="AGENTS.md",
         executor=lambda: {"stdout": "ok"},
     )
     assert allowed["ok"] is True

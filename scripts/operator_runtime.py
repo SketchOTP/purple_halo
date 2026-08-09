@@ -7,6 +7,7 @@ import json
 import os
 import re
 import shutil
+import hashlib
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -133,15 +134,23 @@ def service_unit_for_repo(root: Path | None = None) -> str:
         return unit
     if root.name == "purple_halo":
         return "purple-halo-operator.service"
-    return f"purple-halo-{repo_slug(root.name)}.service"
+    identity = hashlib.sha256(str(root.resolve()).encode("utf-8")).hexdigest()[:8]
+    return f"purple-halo-{repo_slug(root.name)}-{identity}.service"
 
 
 def claim_schedule_slot(slot_at: str, *, today: str | None = None) -> dict[str, Any]:
     """Claim a schedule slot for today. Prevents duplicate fires across restarts."""
     today = today or datetime.now(timezone.utc).date().isoformat()
     key = today + ":" + str(slot_at)
+    # A lock file is the cross-process compare-and-set boundary. flock is
+    # intentionally kept local to this short critical section.
+    import fcntl
+    SLOT_LOCK.parent.mkdir(parents=True, exist_ok=True)
+    fd = SLOT_LOCK.open("a+")
+    fcntl.flock(fd.fileno(), fcntl.LOCK_EX)
     lock = load_json_safe(SLOT_LOCK)
     if lock.get("last_claimed") == key:
+        fcntl.flock(fd.fileno(), fcntl.LOCK_UN); fd.close()
         return {"claimed": False, "reason": "already_claimed", "key": key, "lock": lock}
     lock = {
         "last_claimed": key,
@@ -150,6 +159,7 @@ def claim_schedule_slot(slot_at: str, *, today: str | None = None) -> dict[str, 
         "day": today,
     }
     save_json_atomic(SLOT_LOCK, lock)
+    fcntl.flock(fd.fileno(), fcntl.LOCK_UN); fd.close()
     return {"claimed": True, "reason": "claimed", "key": key, "lock": lock}
 
 
@@ -243,14 +253,17 @@ def startup_health_checks() -> dict[str, Any]:
 
 
 def self_check() -> None:
+    prior_lock = SLOT_LOCK.read_bytes() if SLOT_LOCK.is_file() else None
     claim1 = claim_schedule_slot("99:99", today="2099-01-01")
     claim2 = claim_schedule_slot("99:99", today="2099-01-01")
     assert claim1["claimed"] is True
     assert claim2["claimed"] is False
     # cleanup test lock if it was only our test key
     lock = load_json_safe(SLOT_LOCK)
-    if lock.get("last_claimed") == "2099-01-01:99:99":
+    if prior_lock is None:
         SLOT_LOCK.unlink(missing_ok=True)
+    else:
+        SLOT_LOCK.write_bytes(prior_lock)
     health = startup_health_checks()
     assert "schedule_loaded" in health
     assert "cost_policy_loaded" in health

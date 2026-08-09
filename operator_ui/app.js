@@ -183,10 +183,12 @@ function collectSchedulePayload() {
         return slot;
       })
       .filter((s) => s.at);
-    return { kind: "times", runs, for_days: Number($("forDaysTimes").value),
+    const rawDays = Number($("forDaysTimes").value);
+    return { kind: "times", runs, for_days: rawDays > 0 ? rawDays : null,
       every_weeks: Number($("everyWeeks").value) || 1, until_goal, timezone: tz };
   }
-  return { kind: "interval", every: `${$("everyHours").value}h`, for_days: Number($("forDays").value),
+  const rawDays = Number($("forDays").value);
+  return { kind: "interval", every: `${$("everyHours").value}h`, for_days: rawDays > 0 ? rawDays : null,
     until_goal, timezone: tz };
 }
 
@@ -209,11 +211,11 @@ function renderRunChart(report) {
     return;
   }
   chart.classList.remove("empty");
-  lines.forEach((line) => {
+  lines.forEach((line, i) => {
     const bar = document.createElement("div");
     const fail = /fail|error|block/i.test(line);
     bar.className = "run-bar" + (fail ? " fail" : "");
-    bar.style.height = `${Math.min(24 + line.length * 0.5, 100)}%`;
+    bar.style.height = `${Math.min(24 + (i + 1) * 8, 100)}%`;
     bar.title = line;
     chart.appendChild(bar);
   });

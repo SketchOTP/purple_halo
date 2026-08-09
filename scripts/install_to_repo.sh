@@ -57,11 +57,10 @@ copy_tree() {
   local dst="$2"
   mkdir -p "$dst"
   if command -v rsync >/dev/null 2>&1; then
-    rsync -a --delete --exclude '__pycache__' --exclude '*.pyc' "$src/" "$dst/"
+    rsync -a --exclude '__pycache__' --exclude '*.pyc' "$src/" "$dst/"
   else
-    rm -rf "$dst"
-    mkdir -p "$(dirname "$dst")"
-    cp -a "$src" "$dst"
+    mkdir -p "$dst"
+    cp -a "$src/." "$dst/"
   fi
 }
 
@@ -169,9 +168,8 @@ if [[ -n "$GOAL" ]]; then
   fi
   cp "$GOAL" "$DEST/project_goals.md"
   echo "goal: $DEST/project_goals.md (from $GOAL)"
-elif [[ -f "$MASTER_GOAL" ]]; then
-  cp "$MASTER_GOAL" "$DEST/project_goals.md"
-  echo "goal: $DEST/project_goals.md (purple_halo mission from master)"
+elif [[ -f "$DEST/project_goals.md" ]]; then
+  echo "goal: preserved existing $DEST/project_goals.md"
 else
   cat > "$DEST/project_goals.md" <<'MD'
 # purple_halo mission
@@ -218,11 +216,26 @@ MMDDYY HHMM Summary of what was done in this run
 MD
 
 NAME="$(basename "$DEST" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')"
-UNIT="purple-halo-${NAME}.service"
-# Stable port in 8766-8865 so it does not collide with the self-product UI on 8765.
-PORT=$((8766 + $(printf '%s' "$DEST" | cksum | awk '{print $1 % 100}')))
+PATH_HASH="$(printf '%s' "$DEST" | sha256sum | cut -c1-8)"
+UNIT="purple-halo-${NAME}-${PATH_HASH}.service"
+# Choose a deterministic candidate, then preflight and advance until free.
+PORT=$((8766 + $(printf '%s' "$DEST" | cksum | awk '{print $1 % 1000}')))
 
 if [[ "$NO_SERVICE" -eq 0 ]]; then
+  for _ in $(seq 1 1000); do
+    if python3 - "$PORT" <<'PY'
+import socket, sys
+s = socket.socket()
+try:
+    s.bind(("127.0.0.1", int(sys.argv[1])))
+except OSError:
+    raise SystemExit(1)
+finally:
+    s.close()
+PY
+    then break; fi
+    PORT=$((PORT + 1))
+  done
   UNIT_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
   mkdir -p "$UNIT_DIR"
   cat > "$UNIT_DIR/$UNIT" <<UNIT

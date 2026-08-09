@@ -173,7 +173,10 @@ def handle_verification_dispatch(package: dict[str, Any], handler_inputs: dict[s
 
     brief = build_structured_verification_brief(package=package)
     brief["command_results"] = cmd_results
-    persist_verification_brief_file(package=package)
+    # Persist the exact brief that includes command evidence.
+    brief_path = ROOT / brief_rel
+    brief_path.parent.mkdir(parents=True, exist_ok=True)
+    brief_path.write_text(json.dumps(brief, indent=2) + "\n", encoding="utf-8")
     touched = [
         brief_rel,
     ]
@@ -283,6 +286,9 @@ def dispatch_work_package(package: dict[str, Any]) -> dict[str, Any]:
 
 
 def self_check() -> None:
+    import tempfile
+    state_paths = [RUNTIME / "goal_ingestion_index.json", RUNTIME / "goal_model.json"]
+    snapshots = {p: p.read_bytes() for p in state_paths if p.is_file()}
     pkg = {
         "work_id": "self_check_goal",
         "cycle_id": 0,
@@ -294,7 +300,12 @@ def self_check() -> None:
         "handler_inputs": {"capability_area": "goal_ingestion"},
         "expected_outputs": ["project_memory/runtime/goal_ingestion_index.json"],
     }
-    result = dispatch_work_package(pkg)
+    try:
+      result = dispatch_work_package(pkg)
+    finally:
+      for p in state_paths:
+        if p in snapshots: p.write_bytes(snapshots[p])
+        else: p.unlink(missing_ok=True)
     assert result["outcome_status"] == "completed", result
     assert result["handler"] == "goal_ingestion"
     assert result["files_touched"]

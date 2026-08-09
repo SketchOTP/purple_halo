@@ -84,7 +84,7 @@ def parse_success_criteria(goal_text: str | None = None) -> list[dict[str, Any]]
     in_section = False
     bullets: list[str] = []
     for line in lines:
-        if line.strip().startswith("## Success Criteria"):
+        if line.strip().lower().replace("-", " ") in {"## success criteria", "## success criteria:"}:
             in_section = True
             continue
         if in_section and line.startswith("## "):
@@ -441,6 +441,16 @@ def ensure_goal_delivery_mode() -> dict[str, Any]:
 
 
 def criteria_complete(ledger: dict[str, Any] | None = None) -> bool:
+    try:
+        from loop_target_workspace import is_project_mode, goal_path
+        if is_project_mode():
+            text = goal_path().read_text(encoding="utf-8") if goal_path().is_file() else ""
+            checklist = [line for line in text.splitlines() if line.strip().startswith(("- [", "* ["))]
+            # Installed missions use their own explicit checklist. Purple Halo
+            # criterion IDs/probes are never consulted for this mode.
+            return bool(checklist) and all("[x]" in line.lower() for line in checklist)
+    except Exception:
+        return False
     ledger = ledger or load_ledger()
     return bool(ledger.get("all_criteria_complete"))
 

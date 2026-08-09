@@ -100,16 +100,8 @@ def load_policy() -> dict[str, Any]:
     merged["budget_mode"] = mode
     merged.update(MODE_LIMITS[mode])
     merged["allow_expensive_execution"] = bool(merged.get("allow_expensive_execution"))
-    try:
-        import loop_target_workspace as _ltw
-        if _ltw.is_project_mode():
-            merged["budget_mode"] = str(merged.get("budget_mode") or "balanced")
-            merged["allow_expensive_execution"] = True
-            merged["max_worker_sessions_per_day"] = max(int(merged.get("max_worker_sessions_per_day") or 0), 8)
-            merged["max_code_implementation_attempts_per_day"] = max(int(merged.get("max_code_implementation_attempts_per_day") or 0), 8)
-            merged["max_research_calls_per_day"] = max(int(merged.get("max_research_calls_per_day") or 0), 8)
-    except Exception:
-        pass
+    # Project mode uses the persisted budget policy exactly; mode must not
+    # silently override the operator's selected spending contract.
     merged["pin_expensive_execution"] = bool(merged.get("pin_expensive_execution"))
     return merged
 
@@ -490,6 +482,7 @@ def reset_expensive_execution_after_cycle(*, run_profile: str | None = None) -> 
 
 
 def self_check() -> None:
+    prior = ACCOUNTING_PATH.read_bytes() if ACCOUNTING_PATH.is_file() else None
     policy = load_policy()
     assert policy["budget_mode"] == "cheap_default"
     assert policy["allow_expensive_execution"] is False
@@ -498,10 +491,16 @@ def self_check() -> None:
     assert not ok
     ok, reason = allow_task_execution("docs_update")
     assert ok and reason == "cheap_task_allowed"
-    acct = begin_cycle_accounting(0)
-    assert acct["cycle_id"] == 0
-    artifact = finalize_cycle_accounting(0, budget_decision_reason="self_check")
-    assert "estimated_token_cost" in artifact
+    try:
+        acct = begin_cycle_accounting(0)
+        assert acct["cycle_id"] == 0
+        artifact = finalize_cycle_accounting(0, budget_decision_reason="self_check")
+        assert "estimated_token_cost" in artifact
+    finally:
+        if prior is None:
+            ACCOUNTING_PATH.unlink(missing_ok=True)
+        else:
+            ACCOUNTING_PATH.write_bytes(prior)
     monthly = monthly_token_status(ceiling=500_000)
     assert "monthly_token_usage" in monthly and "monthly_token_ceiling" in monthly
     status = budget_status()

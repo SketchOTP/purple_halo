@@ -188,7 +188,7 @@ def verification_commands() -> list[list[str]]:
     contract = active_contract()
     if contract and contract.get("target_verification_commands"):
         return [list(c) for c in contract["target_verification_commands"]]
-    return [["python3", "scripts/verify-loop.sh"]]
+    return [["bash", "scripts/verify-loop.sh"]]
 
 
 def _paths_for_item(item: dict[str, Any]) -> list[str]:
