@@ -123,6 +123,11 @@ def is_worker_backed_code_item(item: dict[str, Any]) -> bool:
         str(t).startswith("project_memory/") for t in (item.get("target_files") or [])
     ):
         return False
+    if ltw.is_project_mode():
+        if str(item.get("generated_from") or "") == "mission_backlog_refresh":
+            paths = [str(p) for p in (item.get("target_files") or item.get("proposed_repo_delta") or [])]
+            return bool(paths) and not all(ltw.is_control_plane_path(p) for p in paths)
+        return False
     if is_external_target_active():
         if item.get("generated_from") == "target_backlog_refresh":
             return True
@@ -1026,6 +1031,8 @@ def _spec_to_item(spec: dict[str, Any], *, research: dict[str, Any]) -> dict[str
         item["research_fact"] = str(research["summary"])[:240]
     if spec.get("generated_from"):
         item["generated_from"] = spec["generated_from"]
+    if spec.get("hold_work_class"):
+        item["hold_work_class"] = spec["hold_work_class"]
     if spec.get("routing_class"):
         item["routing_class"] = spec["routing_class"]
     return item
@@ -1058,6 +1065,8 @@ def _is_note_only(item: dict[str, Any]) -> bool:
 
 
 def is_bookkeeping_item(item: dict[str, Any]) -> bool:
+    if str(item.get("generated_from") or "") in {"mission_backlog_refresh", "target_backlog_refresh"}:
+        return False
     if _is_note_only(item):
         return True
     wid = str(item.get("work_id") or "")
@@ -1095,6 +1104,13 @@ def is_end_goal_capability_item(item: dict[str, Any]) -> bool:
 def is_meaningful_product_item(item: dict[str, Any]) -> bool:
     if is_proof_work_item(item) or is_bookkeeping_item(item) or is_proof_revalidation_item(item):
         return False
+    if ltw.is_project_mode():
+        if ltw.classify_work_item(item) != ltw.ROUTING_TARGET:
+            return False
+        paths = [str(p) for p in (item.get("target_files") or item.get("proposed_repo_delta") or [])]
+        if paths and any(ltw.is_control_plane_path(p) for p in paths):
+            return False
+        return str(item.get("task_type") or "") in EXECUTABLE_TYPES | {"scheduler_integration"}
     wid = str(item.get("work_id") or "")
     if wid.startswith("product_gap_") or wid == "product_cycle_closure":
         return False
@@ -1154,7 +1170,10 @@ def _apply_quality_rules(
 
 
 def _goal_underspecified(goal_text: str) -> bool:
-    return not goal_text.strip() or len(goal_text) < 50 or "Product Goal" not in goal_text
+    text = goal_text.strip()
+    if ltw.is_project_mode():
+        return len(text) < 80 or "Success criteria" not in text
+    return not text or len(text) < 50 or "Product Goal" not in text
 
 
 def _derive_product_items(
@@ -1165,6 +1184,15 @@ def _derive_product_items(
     state: dict[str, Any],
     research: dict[str, Any],
 ) -> list[dict[str, Any]]:
+    if ltw.is_project_mode():
+        raw = [
+            _spec_to_item(spec, research=research)
+            for spec in _project_mode_product_specs(
+                goal_text=goal_text, status_text=status_text, repo_snapshot=repo_snapshot
+            )
+        ]
+        filtered, _ = _apply_quality_rules(raw, goal_underspecified=False)
+        return filtered
     if is_external_target_active():
         raw = [
             _spec_to_item(spec, research=research)
@@ -1479,6 +1507,159 @@ def _goal_driven_target_specs(
     return specs
 
 
+def _mission_product_files(repo_snapshot: dict[str, Any]) -> list[str]:
+    skip_prefixes = (
+        "scripts/", "operator_ui/", "project_memory/", "contracts/",
+        "config/", "systemd/purple", "docs/PURPLE_HALO",
+    )
+    files = [str(f) for f in (repo_snapshot.get("tracked_files") or [])]
+    if ltw.is_project_mode():
+        root = ltw.product_root()
+        for pref in ("services", "apps", "src", "lib", "crates", "anima", "SCRIPTS"):
+            base = root / pref
+            if not base.is_dir():
+                continue
+            for path in sorted(base.rglob("*")):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(root).as_posix()
+                if any(rel.startswith(s) for s in skip_prefixes):
+                    continue
+                if rel.endswith((".py", ".rs", ".js", ".ts", ".tsx", ".sh", ".toml")):
+                    files.append(rel)
+    out: list[str] = []
+    for rel in files:
+        if any(rel.startswith(p) for p in skip_prefixes):
+            continue
+        if rel.endswith((".py", ".rs", ".js", ".ts", ".tsx", ".sh", ".toml", ".yaml", ".yml")):
+            out.append(rel)
+        elif rel.endswith(".md") and rel not in {"project_goals.md", "project_status.md", "repo_map.md"}:
+            out.append(rel)
+
+    def _rank(p: str) -> tuple[int, str]:
+        for i, pref in enumerate(("services/", "apps/", "src/", "lib/", "crates/")):
+            if p.startswith(pref):
+                return (i, p)
+        return (9, p)
+
+    out.sort(key=_rank)
+    return out[:24]
+
+
+def _project_mode_product_specs(
+    *,
+    goal_text: str,
+    status_text: str,
+    repo_snapshot: dict[str, Any],
+) -> list[dict[str, Any]]:
+    specs: list[dict[str, Any]] = []
+    if _repo_map_needs_refresh():
+        content = _build_repo_map_content(repo_snapshot=repo_snapshot)
+        specs.append(
+            {
+                "work_id": "mission_repo_map_entry_points",
+                "title": "Populate repo_map entry points from live layout",
+                "capability": "repo_status_analysis",
+                "goal_gap_addressed": "mission_repo_navigation",
+                "task_type": "code_implementation",
+                "priority": 2,
+                "routing_class": ltw.ROUTING_TARGET,
+                "generated_from": "mission_backlog_refresh",
+                "objective": "Refresh repo_map.md from the live repository layout.",
+                "why_now": "Mission cycles need accurate product navigation.",
+                "detect_open": _repo_map_needs_refresh,
+                "target_files": ["repo_map.md"],
+                "proposed_repo_delta": ["repo_map.md"],
+                "expected_outputs": ["repo_map.md"],
+                "execution_steps": [{"type": "write_file", "path": "repo_map.md", "content": content}],
+                "verification_commands": [["test", "-f", "repo_map.md"]],
+                "done_when": ["file exists: repo_map.md"],
+            }
+        )
+    if len(status_text.strip()) < 120:
+        specs.append(
+            {
+                "work_id": "mission_project_status_bootstrap",
+                "title": "Bootstrap project_status from repo evidence",
+                "capability": "repo_status_analysis",
+                "goal_gap_addressed": "mission_status_truth",
+                "task_type": "code_implementation",
+                "priority": 3,
+                "routing_class": ltw.ROUTING_TARGET,
+                "generated_from": "mission_backlog_refresh",
+                "objective": "Seed project_status.md with live repo summary for mission planning.",
+                "why_now": "Status file is thin; cycles need repo truth.",
+                "detect_open": lambda: len(_file_text("project_status.md").strip()) < 120,
+                "target_files": ["project_status.md"],
+                "proposed_repo_delta": ["project_status.md"],
+                "expected_outputs": ["project_status.md"],
+                "execution_steps": [
+                    {
+                        "type": "write_file",
+                        "path": "project_status.md",
+                        "content": "# Project Status\n\n## Current state\n\n- Bootstrapped for purple_halo mission cycles.\n- See repo_map.md and operator mission in project_goals.md.\n",
+                    }
+                ],
+                "verification_commands": [["test", "-f", "project_status.md"]],
+                "done_when": ["file exists: project_status.md"],
+            }
+        )
+    return specs
+
+
+def _project_mode_gap_specs(
+    capability_gaps: list[dict[str, Any]],
+    *,
+    research: dict[str, Any],
+    repo_snapshot: dict[str, Any],
+    existing_items: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    if not capability_gaps:
+        return []
+    product_files = _mission_product_files(repo_snapshot)
+    if not product_files:
+        product_files = ["project_status.md"]
+    verified_gap_ids = {
+        str(i.get("goal_gap_addressed") or "")
+        for i in existing_items
+        if i.get("status") == "verified"
+    }
+    existing_ids = {str(i.get("work_id") or "") for i in existing_items}
+    specs: list[dict[str, Any]] = []
+    for idx, gap in enumerate(sorted(capability_gaps, key=lambda g: int(g.get("priority") or 99))):
+        gap_id = str(gap.get("id") or "")
+        if not gap_id or gap_id in verified_gap_ids:
+            continue
+        work_id = f"mission_gap_{gap_id.removeprefix('gap_')}"
+        if work_id in existing_ids:
+            continue
+        target = product_files[idx % len(product_files)]
+        specs.append(
+            {
+                "work_id": work_id,
+                "title": f"Mission step: {gap.get('description') or gap_id}",
+                "capability": "implementation_dispatch",
+                "goal_gap_addressed": gap_id,
+                "task_type": "code_implementation",
+                "priority": max(1, int(gap.get("priority") or 50)),
+                "routing_class": ltw.ROUTING_TARGET,
+                "generated_from": "mission_backlog_refresh",
+                "objective": str(gap.get("description") or gap_id),
+                "why_now": f"Next increment toward operator mission ({gap_id}).",
+                "detect_open": lambda _gid=gap_id: True,
+                "target_files": [target],
+                "proposed_repo_delta": [target],
+                "expected_outputs": [target],
+                "execution_steps": [],
+                "verification_commands": [["test", "-f", target]],
+                "done_when": [f"file exists: {target}"],
+            }
+        )
+        if len(specs) >= 3:
+            break
+    return specs
+
+
 def _external_target_product_specs(
     *,
     goal_text: str,
@@ -1617,7 +1798,23 @@ def refresh_backlog(
             "last_refreshed_at": _goal_model.get("last_refreshed_at"),
             "source_hash": _goal_model.get("source_hash"),
         }
-    if is_external_target_active():
+    if ltw.is_project_mode():
+        raw_specs = [
+            _spec_to_item(spec, research=research)
+            for spec in _project_mode_product_specs(
+                goal_text=goal_text, status_text=status_text, repo_snapshot=repo_snapshot
+            )
+        ]
+        gap_specs = _project_mode_gap_specs(
+            capability_gaps,
+            research=research,
+            repo_snapshot=repo_snapshot,
+            existing_items=backlog.get("product_work_items") or [],
+        )
+        raw_specs.extend(_spec_to_item(spec, research=research) for spec in gap_specs)
+        rejections: list[str] = []
+        fresh, rejections = _apply_quality_rules(raw_specs, goal_underspecified=False)
+    elif is_external_target_active():
         raw_specs = [
             _spec_to_item(spec, research=research)
             for spec in _external_target_product_specs(
@@ -1696,7 +1893,7 @@ def refresh_backlog(
             capability_gaps=capability_gaps,
             backlog=backlog,
         )
-    if not is_external_target_active():
+    if not is_external_target_active() and not ltw.is_project_mode():
         backlog = _seed_self_loop_gap_work(backlog, capability_gaps=capability_gaps, research=research)
         open_list = open_items(backlog)
         if capability_gaps and not open_list:
@@ -1728,11 +1925,13 @@ def pick_next_item(backlog: dict[str, Any], continuity_meta: dict[str, Any] | No
         return None
     executable = [i for i in items if i.get("task_type") in EXECUTABLE_TYPES]
     pool = executable or items
-    if is_external_target_active():
+    if is_external_target_active() or ltw.is_project_mode():
         pool = [
             i
             for i in pool
-            if ltw.classify_work_item(i) == ltw.ROUTING_TARGET and not is_proof_work_item(i)
+            if ltw.classify_work_item(i) == ltw.ROUTING_TARGET
+            and not is_proof_work_item(i)
+            and not all(ltw.is_control_plane_path(str(p)) for p in (i.get("target_files") or i.get("proposed_repo_delta") or [""]))
         ]
     else:
         pool = [
@@ -1751,6 +1950,13 @@ def pick_next_item(backlog: dict[str, Any], continuity_meta: dict[str, Any] | No
         if real:
             pool = real
     meaningful = [i for i in pool if is_meaningful_product_item(i)]
+    if ltw.is_project_mode() and meaningful:
+        if continuity_meta and continuity_meta.get("resumed_prior_intent"):
+            from loop_continuity_state import prefer_continuity_work_item
+            preferred = prefer_continuity_work_item(meaningful, continuity_meta)
+            if preferred:
+                return preferred
+        return sorted(meaningful, key=ltw.routing_sort_key)[0]
     if meaningful:
         try:
             from loop_autonomous import evaluate_product_complete, live_soak_active
@@ -1812,6 +2018,26 @@ def pick_next_item(backlog: dict[str, Any], continuity_meta: dict[str, Any] | No
 
 def ensure_open_worker_capability(backlog: dict[str, Any], *, research: dict[str, Any]) -> dict[str, Any]:
     """Keep at least one open worker-backed code_implementation item when not blocked/complete."""
+    if ltw.is_project_mode():
+        if any(is_worker_backed_code_item(i) for i in open_items(backlog)):
+            return backlog
+        from purple_halo_loop import repo_snapshot as _repo_snapshot
+        gap_specs = _project_mode_gap_specs(
+            backlog.get("capability_gaps") or [],
+            research=research,
+            repo_snapshot=_repo_snapshot(),
+            existing_items=backlog.get("product_work_items") or [],
+        )
+        for spec in gap_specs:
+            item = _spec_to_item(spec, research=research)
+            item["status"] = "open"
+            wid = str(item.get("work_id") or "")
+            existing_ids = {str(i.get("work_id")) for i in backlog.get("product_work_items") or []}
+            if wid not in existing_ids:
+                backlog.setdefault("product_work_items", []).append(item)
+            backlog["updated_at"] = _now_iso()
+            break
+        return backlog
     if is_external_target_active():
         return backlog
     if backlog.get("empty_reason") in {"product_complete", "goal_underspecified", "repo_blocked"}:
@@ -1952,6 +2178,10 @@ def work_item_to_plan(item: dict[str, Any], *, cycle_id: int, research: dict[str
         "selection_rationale": item.get("selection_rationale") or "",
         "evidence_backed": bool(item.get("evidence_backed")),
     }
+    if item.get("generated_from"):
+        plan["generated_from"] = item["generated_from"]
+    if item.get("hold_work_class"):
+        plan["hold_work_class"] = item["hold_work_class"]
     if item.get("force_worker_bridge"):
         plan["force_worker_bridge"] = True
     return plan
@@ -2004,6 +2234,9 @@ def attach_work_package(
         "research_inputs": dict(plan.get("research_inputs") or {}),
         "verification_basis": dict(plan.get("verification_basis") or {}),
         "selection_rationale": plan.get("selection_rationale") or plan.get("why_this_step_now") or "",
+        "local_only": bool(plan.get("local_only")),
+        "generated_from": plan.get("generated_from") or "",
+        "hold_work_class": plan.get("hold_work_class") or "",
     }
     if plan.get("force_worker_bridge") or bounded.get("force_worker_bridge"):
         item["force_worker_bridge"] = True
@@ -2019,6 +2252,8 @@ def attach_work_package(
     merged = {**plan, **fields}
     merged["work_package"] = package
     merged["cycle_id"] = cycle_id
+    merged["local_only"] = bool(package.get("local_only") or plan.get("local_only"))
+    merged["dispatch_target"] = package.get("dispatch_target") or plan.get("dispatch_target") or ""
     return merged
 
 

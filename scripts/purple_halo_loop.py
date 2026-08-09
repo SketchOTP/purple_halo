@@ -419,6 +419,23 @@ def run_cycle() -> dict[str, Any]:
     state = load_state()
     backlog = load_backlog()
     health = _backlog_health()
+    if ltw.is_project_mode() and int(health.get("open_count") or 0) == 0:
+        goals_path = ltw.goal_path()
+        status_path = ltw.status_path()
+        goal_text = goals_path.read_text(encoding="utf-8") if goals_path.is_file() else ""
+        status_text = status_path.read_text(encoding="utf-8") if status_path.is_file() else ""
+        snapshot = repo_snapshot()
+        from loop_backlog import refresh_backlog, backlog_health as _bh
+
+        backlog = refresh_backlog(
+            capability_gaps=list(state.get("open_gaps") or []),
+            goal_text=goal_text,
+            status_text=status_text,
+            repo_snapshot=snapshot,
+            state=state,
+            research={},
+        )
+        health = _bh(backlog)
     stop = check_cycle_stop(state=state, backlog=backlog, health=health)
     if stop:
         reason = str(stop["reason"])

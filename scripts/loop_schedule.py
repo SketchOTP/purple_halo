@@ -10,12 +10,15 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT = ROOT / "project_memory" / "runtime" / "schedule.default.json"
 ACTIVE = ROOT / "project_memory" / "runtime" / "schedule.json"
 HISTORY_PATH = ROOT / "project_memory" / "runtime" / "schedule_run_history.json"
 LOOP = ROOT / "scripts" / "purple_halo_loop.py"
+
+_DAY_NAMES = {"mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4, "sat": 5, "sun": 6}
 
 
 def _now_iso() -> str:
@@ -123,6 +126,67 @@ def _current_hhmm() -> str:
     return datetime.now(timezone.utc).strftime("%H:%M")
 
 
+def _schedule_now(schedule: dict[str, Any]) -> datetime:
+    tz_name = str(schedule.get("timezone") or "UTC")
+    try:
+        tz = ZoneInfo(tz_name)
+    except Exception:
+        tz = timezone.utc
+    return datetime.now(tz)
+
+
+def _parse_slot_days(days: Any) -> set[int] | None:
+    """None = all days; otherwise weekday ints 0=Mon .. 6=Sun."""
+    if days is None or days == [] or days == "*" or days == "all":
+        return None
+    if isinstance(days, str):
+        days = [days]
+    out: set[int] = set()
+    for raw in days:
+        if isinstance(raw, int) and 0 <= raw <= 6:
+            out.add(raw)
+            continue
+        key = str(raw).strip().lower()[:3]
+        if key in _DAY_NAMES:
+            out.add(_DAY_NAMES[key])
+        elif str(raw).strip().lower() in ("*", "all"):
+            return None
+    return out or None
+
+
+def _week_interval_ok(schedule: dict[str, Any], now: datetime) -> bool:
+    every = int(schedule.get("every_weeks") or 1)
+    if every <= 1:
+        return True
+    anchor_raw = schedule.get("campaign_started_at") or schedule.get("schedule_anchor")
+    if not anchor_raw:
+        return True
+    anchor = _parse_iso(str(anchor_raw))
+    if anchor is None:
+        return True
+    if now.tzinfo is not None:
+        anchor = anchor.astimezone(now.tzinfo)
+    weeks = (now.date() - anchor.date()).days // 7
+    return weeks >= 0 and weeks % every == 0
+
+
+def _times_slots_due(schedule: dict[str, Any]) -> list[dict[str, Any]]:
+    now = _schedule_now(schedule)
+    if not _week_interval_ok(schedule, now):
+        return []
+    hhmm = now.strftime("%H:%M")
+    wd = now.weekday()
+    due: list[dict[str, Any]] = []
+    for slot in schedule.get("runs") or []:
+        if str(slot.get("at") or "") != hhmm:
+            continue
+        allowed = _parse_slot_days(slot.get("days"))
+        if allowed is not None and wd not in allowed:
+            continue
+        due.append(slot)
+    return due
+
+
 def campaign_stop_reason(schedule: dict[str, Any] | None = None) -> str:
     """Return stop reason if campaign should end (goal or days), else empty."""
     schedule = schedule or load_schedule()
@@ -201,10 +265,10 @@ def slots_due_now(schedule: dict[str, Any] | None = None) -> list[dict[str, Any]
         return []
     if campaign_stop_reason(schedule):
         return []
-    if schedule.get("schedule_kind") == "interval" or schedule.get("every_hours"):
+    kind = str(schedule.get("schedule_kind") or "")
+    if kind == "interval" or schedule.get("every_hours"):
         return _interval_slots_due(schedule)
-    now = _current_hhmm()
-    return [slot for slot in (schedule.get("runs") or []) if str(slot.get("at") or "") == now]
+    return _times_slots_due(schedule)
 
 
 def run_loop(*, trigger: str, decision: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -414,6 +478,8 @@ def self_check() -> None:
     complete = evaluate_product_complete()
     assert "product_complete" in complete
     assert _interval_slot_key(2.0).startswith("interval-")
+    assert _parse_slot_days(["mon", "wed"]) == {0, 2}
+    assert _parse_slot_days(None) is None
     assert summarize_run(status="failure", error="boom").startswith("Failed:")
     due = _interval_slots_due({"every_hours": 2})
     assert due and str(due[0].get("at") or "").startswith("interval-")

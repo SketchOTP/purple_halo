@@ -74,8 +74,38 @@ if [[ -d "$SOURCE/systemd" ]]; then
   cp -a "$SOURCE/systemd/." "$DEST/systemd/" 2>/dev/null || true
 fi
 
-# Project-mode schedule: interval-ready, not production freeze.
-cat > "$DEST/project_memory/runtime/schedule.json" <<'JSON'
+# Copy schedule from master (source checkout); fresh project instance starts paused.
+SOURCE_SCHEDULE="$SOURCE/project_memory/runtime/schedule.json"
+if [[ -f "$SOURCE_SCHEDULE" ]]; then
+  SOURCE="$SOURCE" DEST="$DEST" python3 - <<'PY'
+import json, os
+from pathlib import Path
+
+src = Path(os.environ["SOURCE"]) / "project_memory/runtime/schedule.json"
+dest = Path(os.environ["DEST"]) / "project_memory/runtime/schedule.json"
+data = json.loads(src.read_text(encoding="utf-8"))
+data["enabled"] = False
+data["mode"] = "project_mode"
+data["campaign_started_at"] = None
+data["campaign_stop_reason"] = ""
+data["goal_file"] = "project_goals.md"
+data.pop("goal_file_source", None)
+# ponytail: Product A — strip self-product flags; installed instances get simple loop gates only
+for key in (
+    "operator_review_trigger",
+    "production_candidate_operations",
+    "goal_delivery_mode",
+):
+    data.pop(key, None)
+data["architecture_freeze"] = False
+data["production_candidate_operations"] = False
+data["goal_delivery_mode"] = False
+dest.parent.mkdir(parents=True, exist_ok=True)
+dest.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+PY
+  echo "schedule: copied from master ($SOURCE_SCHEDULE), enabled=false"
+else
+  cat > "$DEST/project_memory/runtime/schedule.json" <<'JSON'
 {
   "enabled": false,
   "timezone": "UTC",
@@ -91,7 +121,7 @@ cat > "$DEST/project_memory/runtime/schedule.json" <<'JSON'
   "monthly_token_ceiling": 500000,
   "production_candidate_operations": false,
   "architecture_freeze": false,
-  "goal_delivery_mode": true,
+  "goal_delivery_mode": false,
   "auto_pause_conditions": [
     "monthly_token_ceiling",
     "operator_pause",
@@ -99,6 +129,8 @@ cat > "$DEST/project_memory/runtime/schedule.json" <<'JSON'
   ]
 }
 JSON
+  echo "schedule: default (master schedule.json missing)"
+fi
 
 cat > "$DEST/project_memory/runtime/schedule_run_history.json" <<'JSON'
 {
@@ -111,7 +143,7 @@ cat > "$DEST/project_memory/runtime/schedule_run_history.json" <<'JSON'
   "production_candidate_operations": false,
   "production_candidate": false,
   "live_soak_passed": false,
-  "goal_delivery_mode": true,
+  "goal_delivery_mode": false,
   "feature_freeze": false,
   "architecture_freeze": false
 }
@@ -122,11 +154,13 @@ if [[ -f "$SOURCE/config/templates/cost_policy.json" ]]; then
 else
   cat > "$DEST/project_memory/runtime/cost_policy.json" <<'JSON'
 {
-  "budget_mode": "cheap_default",
-  "allow_expensive_execution": false
+  "budget_mode": "balanced",
+  "allow_expensive_execution": true
 }
 JSON
 fi
+
+MASTER_GOAL="$SOURCE/project_goals.md"
 
 if [[ -n "$GOAL" ]]; then
   if [[ ! -f "$GOAL" ]]; then
@@ -135,19 +169,20 @@ if [[ -n "$GOAL" ]]; then
   fi
   cp "$GOAL" "$DEST/project_goals.md"
   echo "goal: $DEST/project_goals.md (from $GOAL)"
-elif [[ -f "$DEST/project_goals.md" ]]; then
-  echo "goal: $DEST/project_goals.md (kept)"
+elif [[ -f "$MASTER_GOAL" ]]; then
+  cp "$MASTER_GOAL" "$DEST/project_goals.md"
+  echo "goal: $DEST/project_goals.md (purple_halo mission from master)"
 else
   cat > "$DEST/project_goals.md" <<'MD'
-# Product Goal
+# purple_halo mission
 
-Define the product goal for this repository.
+Define what purple_halo should work on in this repository.
 
 ## Success criteria
 
 - [ ] Describe the first success criterion
 MD
-  echo "goal: seeded placeholder project_goals.md (edit or re-run with --goal)"
+  echo "goal: seeded placeholder project_goals.md"
 fi
 
 if [[ ! -f "$DEST/RUN_REPORT.md" ]]; then
@@ -200,7 +235,7 @@ Type=simple
 WorkingDirectory=${DEST}
 Environment=PYTHONPATH=${DEST}/scripts
 Environment=MIMIR_ENDPOINT=
-ExecStart=/usr/bin/python3 ${DEST}/scripts/operator_service.py --host 127.0.0.1 --port ${PORT}
+ExecStart=/usr/bin/python3 ${DEST}/scripts/operator_service.py --host 127.0.0.1 --port ${PORT} --skip-startup-health
 Restart=on-failure
 RestartSec=5
 
@@ -210,6 +245,23 @@ UNIT
   systemctl --user daemon-reload
   systemctl --user enable "$UNIT"
   systemctl --user restart "$UNIT"
+  UI_URL="http://127.0.0.1:${PORT}/"
+  echo -n "waiting for UI"
+  ready=0
+  for _ in $(seq 1 60); do
+    if curl -sf -o /dev/null --connect-timeout 1 "$UI_URL" 2>/dev/null; then
+      ready=1
+      break
+    fi
+    echo -n "."
+    sleep 0.5
+  done
+  echo ""
+  if [[ "$ready" -eq 1 ]]; then
+    echo "UI ready: $UI_URL"
+  else
+    echo "UI: $UI_URL (service started; confirm with: systemctl --user status $UNIT)" >&2
+  fi
   if command -v loginctl >/dev/null 2>&1; then
     loginctl enable-linger "$USER" >/dev/null 2>&1 || true
   fi
@@ -230,5 +282,5 @@ fi
 
 echo
 echo "Install complete."
-echo "Open the UI above, then: goal → frequency → Play."
+echo "Open the UI above. Schedule and goal copied from master; press Play when ready."
 echo "CLI from $DEST: ph_cli frequency / play / report"

@@ -18,11 +18,22 @@ function $(id) {
   return document.getElementById(id);
 }
 
-function flash(msg, isErr) {
+function flash(msg, isErr, isOk) {
   const el = $("flash");
+  if (!el) return;
   el.hidden = !msg;
   el.textContent = msg || "";
   el.classList.toggle("err", !!isErr);
+  el.classList.toggle("ok", !!isOk && !isErr);
+}
+
+function pulseBtn(id, label, ms) {
+  const btn = $(id);
+  if (!btn) return;
+  const origTitle = btn.title;
+  btn.classList.add("saved");
+  btn.title = label;
+  setTimeout(() => { btn.classList.remove("saved"); btn.title = origTitle; }, ms || 2000);
 }
 
 function setBusy(busy) {
@@ -36,6 +47,147 @@ function renderServiceLed(st) {
   const svcLed = $("serviceLed");
   svcLed.className = "service-led " + (svcUp ? "up" : "down");
   svcLed.title = svcUp ? "Service running" : "Service not running";
+}
+
+
+function renderBrand(st) {
+  const tag = $("repoTag");
+  if (!tag) return;
+  const name = (st.repo_name || "").trim();
+  if (name && name !== "purple_halo") {
+    tag.hidden = false;
+    tag.textContent = `[${name}]`;
+  } else {
+    tag.hidden = true;
+    tag.textContent = "";
+  }
+}
+
+function renderMasterChrome(st) {
+  const isMaster = st.is_master !== false;
+  const install = $("stepRepo");
+  const sched = $("stepFrequency");
+  if (install) install.hidden = !isMaster;
+  if (sched) sched.classList.toggle("span-2", !isMaster);
+}
+
+
+let scheduleDirty = false;
+let goalDirty = false;
+
+function markScheduleDirty() {
+  scheduleDirty = true;
+}
+
+function scheduleKind() {
+  const active = document.querySelector(".sch-toggle-opt[aria-pressed=\"true\"]");
+  return active ? active.dataset.kind : "interval";
+}
+
+function setScheduleKind(kind) {
+  document.querySelectorAll(".sch-toggle-opt").forEach((btn) => {
+    btn.setAttribute("aria-pressed", btn.dataset.kind === kind ? "true" : "false");
+  });
+  toggleScheduleMode(kind);
+}
+
+function toggleScheduleMode(kind) {
+  $("scheduleInterval").hidden = kind !== "interval";
+  $("scheduleTimes").hidden = kind !== "times";
+}
+
+function createTimeSlotRow(at) {
+  const row = document.createElement("div");
+  row.className = "time-slot";
+  row.innerHTML =
+    "<input type=\"time\" class=\"slot-at\" value=\"" +
+    (at || "09:00") +
+    "\" />" +
+    "<button type=\"button\" class=\"slot-remove\" aria-label=\"Remove time\" title=\"Remove\">×</button>";
+  row.querySelector(".slot-remove").onclick = () => {
+    markScheduleDirty();
+    row.remove();
+    if (!$("timeSlots").querySelector(".slot-at")) addTimeSlotRow("09:00");
+  };
+  return row;
+}
+
+function addTimeSlotRow(at) {
+  markScheduleDirty();
+  $("timeSlots").appendChild(createTimeSlotRow(at));
+}
+
+function selectedWeekdays() {
+  const boxes = [...document.querySelectorAll(".wd-check input")];
+  const checked = boxes.filter((cb) => cb.checked).map((cb) => Number(cb.dataset.wd));
+  if (checked.length === 0 || checked.length === boxes.length) return null;
+  return checked;
+}
+
+function setWeekdaysFromRuns(runs) {
+  const boxes = [...document.querySelectorAll(".wd-check input")];
+  if (!runs || !runs.length) {
+    boxes.forEach((cb) => { cb.checked = true; });
+    return;
+  }
+  const days = new Set();
+  for (const run of runs) {
+    for (const d of run.days || []) {
+      if (typeof d === "number") days.add(d);
+      else if (typeof d === "string") {
+        const key = d.trim().toLowerCase().slice(0, 3);
+        const map = { mon: 0, tue: 1, wed: 2, thu: 3, fri: 4, sat: 5, sun: 6 };
+        if (key in map) days.add(map[key]);
+      }
+    }
+  }
+  if (!days.size) {
+    boxes.forEach((cb) => { cb.checked = true; });
+    return;
+  }
+  boxes.forEach((cb) => { cb.checked = days.has(Number(cb.dataset.wd)); });
+}
+
+function renderTimeSlots(runs) {
+  const host = $("timeSlots");
+  host.innerHTML = "";
+  const list = runs && runs.length ? runs : [{ at: "09:00" }];
+  list.forEach((run) => host.appendChild(createTimeSlotRow(String(run.at || "09:00").slice(0, 5))));
+}
+
+function renderSchedule(st) {
+  if (scheduleDirty) return;
+  const kindRaw = st.schedule_kind || (st.every_hours != null ? "interval" : "times");
+  const kind = kindRaw === "interval" ? "interval" : "times";
+  setScheduleKind(kind);
+  if (st.every_hours != null) $("everyHours").value = st.every_hours;
+  if (st.for_days != null) {
+    $("forDays").value = st.for_days;
+    $("forDaysTimes").value = st.for_days;
+  }
+  $("everyWeeks").value = st.every_weeks != null ? st.every_weeks : 1;
+  $("untilGoal").checked = !!st.until_goal_achieved;
+  setWeekdaysFromRuns(st.runs || []);
+  renderTimeSlots(st.runs || []);
+}
+
+function collectSchedulePayload() {
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  const until_goal = $("untilGoal").checked;
+  if (scheduleKind() === "times") {
+    const days = selectedWeekdays();
+    const runs = [...document.querySelectorAll(".slot-at")]
+      .map((inp) => {
+        const slot = { at: inp.value };
+        if (days) slot.days = days;
+        return slot;
+      })
+      .filter((s) => s.at);
+    return { kind: "times", runs, for_days: Number($("forDaysTimes").value),
+      every_weeks: Number($("everyWeeks").value) || 1, until_goal, timezone: tz };
+  }
+  return { kind: "interval", every: `${$("everyHours").value}h`, for_days: Number($("forDays").value),
+    until_goal, timezone: tz };
 }
 
 function setStepState(id, ready) {
@@ -85,25 +237,42 @@ function renderInstallResult(result) {
   details.textContent = lines.join("\n") || "";
 }
 
+
+function renderProgress(st) {
+  const sum = document.getElementById("progressSummary");
+  const det = document.getElementById("progressDetail");
+  if (!sum || !det) return;
+  const p = st.cycle_progress || {};
+  const lr = st.last_run || {};
+  const playing = st.playing ? "Playing" : "Paused";
+  const mode = st.is_master ? "master" : "project";
+  let headline = playing + " · " + mode + " mode";
+  if (p.cycle_id) headline += " · cycle " + p.cycle_id;
+  if (p.status) headline += " · " + p.status;
+  sum.textContent = headline;
+  const parts = [];
+  if (p.summary) parts.push(p.summary);
+  else if (lr.error) parts.push(String(lr.error));
+  else if (lr.status) parts.push("Last scheduler: " + lr.status);
+  if (p.blocked_classification) parts.push("Blocker: " + p.blocked_classification);
+  if (p.outcome_reason) parts.push(p.outcome_reason);
+  if (p.next_focus) parts.push("Next: " + p.next_focus);
+  det.textContent = parts.filter(Boolean).join(" · ") || (st.playing ? "Waiting for next scheduled run." : "Press Play to start.");
+}
+
 function render(st) {
-  const repo = st.repo || "";
-
-  if (st.every_hours != null) $("everyHours").value = st.every_hours;
-  if (st.for_days != null) $("forDays").value = st.for_days;
-  $("untilGoal").checked = !!st.until_goal_achieved;
-
-  if (st.goal_source) $("goalPath").value = st.goal_source;
-  $("goalPreview").textContent = st.goal_preview || "";
-
+  renderSchedule(st);
+  if ($("goalEditor") && !goalDirty) $("goalEditor").value = st.goal_preview || "";
+  renderBrand(st);
+  renderMasterChrome(st);
   renderServiceLed(st);
-
+  renderProgress(st);
   const runCount = st.run_count || 0;
-  $("reportMeta").textContent = runCount ? `${runCount} runs` : "";
+  $("reportMeta").textContent = runCount ? `${runCount} run${runCount === 1 ? "" : "s"}` : "";
   renderRunChart(st.report);
   $("report").textContent = st.report || "";
   $("report").scrollTop = $("report").scrollHeight;
-
-  setStepState("stepRepo", !!repo);
+  setStepState("stepRepo", !!st.repo);
   setStepState("stepGoal", !!st.goal_ready);
   setStepState("stepFrequency", !!st.schedule_saved);
   setStepState("stepPlay", !!st.playing);
@@ -122,58 +291,65 @@ async function withAction(fn) {
     const result = await fn();
     if (result && result.status) render(result.status);
     else await refresh();
-    if (result && result.message) flash(result.message, !result.ok && result.ok !== undefined);
-    if (result && result.ok === false) flash(result.error || result.summary || "Failed", true);
-    if (result && result.install) renderInstallResult(result);
+    if (result && result.ok === false) flash(result.error || result.message || "Failed", true);
+    else if (result && result.message) flash(result.message, false, true);
+    if (result && result.install !== undefined) renderInstallResult(result);
     return result;
   } catch (err) {
     flash(err.message || String(err), true);
+    try { await refresh(); } catch (_) {}
+  } finally { setBusy(false); }
+}
+
+
+async function waitForInstance(url) {
+  const base = String(url || "").replace(/\/?$/, "/");
+  const statusUrl = base + "api/simple/status";
+  for (let i = 0; i < 40; i++) {
     try {
-      await refresh();
-    } catch (_) {
-      /* ignore */
-    }
-  } finally {
-    setBusy(false);
+      const res = await fetch(statusUrl, { cache: "no-store" });
+      if (res.ok) return true;
+    } catch (_) {}
+    await new Promise((r) => setTimeout(r, 500));
   }
+  return false;
 }
 
 function bind() {
-  $("btnFrequency").onclick = () =>
-    withAction(() =>
-      api("/api/simple/frequency", {
-        method: "POST",
-        body: JSON.stringify({
-          every: `${$("everyHours").value}h`,
-          for_days: Number($("forDays").value),
-          until_goal: $("untilGoal").checked,
-        }),
-      })
-    );
-
-  $("btnGoal").onclick = () =>
-    withAction(() =>
-      api("/api/simple/goal", {
-        method: "POST",
-        body: JSON.stringify({ path: $("goalPath").value.trim() }),
-      })
-    );
-
+  document.querySelectorAll(".sch-toggle-opt").forEach((btn) => {
+    btn.onclick = () => { markScheduleDirty(); setScheduleKind(btn.dataset.kind); };
+  });
+  $("stepFrequency").addEventListener("input", markScheduleDirty);
+  $("stepFrequency").addEventListener("change", markScheduleDirty);
+  if ($("goalEditor")) $("goalEditor").addEventListener("input", () => { goalDirty = true; });
+  $("btnAddSlot").onclick = () => addTimeSlotRow("12:00");
+  $("btnFrequency").onclick = () => withAction(async () => {
+    const result = await api("/api/simple/frequency", { method: "POST", body: JSON.stringify(collectSchedulePayload()) });
+    if (result.ok !== false) { scheduleDirty = false; pulseBtn("btnFrequency", "Saved!"); }
+    return result;
+  });
+  $("btnGoal").onclick = () => withAction(async () => {
+    const result = await api("/api/simple/goal", { method: "POST", body: JSON.stringify({ content: $("goalEditor").value }) });
+    if (result.ok !== false) { goalDirty = false; pulseBtn("btnGoal", "Saved!"); }
+    return result;
+  });
   $("btnPlay").onclick = () => withAction(() => api("/api/simple/play", { method: "POST", body: "{}" }));
   $("btnPause").onclick = () => withAction(() => api("/api/simple/pause", { method: "POST", body: "{}" }));
   $("btnRunOnce").onclick = () => withAction(() => api("/api/simple/run-now", { method: "POST", body: "{}" }));
-
-  $("btnInstall").onclick = () =>
-    withAction(async () => {
-      const repo = $("installRepo").value.trim();
-      const goal = $("goalPath").value.trim();
-      const result = await api("/api/simple/install", {
-        method: "POST",
-        body: JSON.stringify({ repo, goal: goal || undefined }),
-      });
-      renderInstallResult(result);
-      return result;
-    });
+  $("btnInstall").onclick = () => withAction(async () => {
+    const repo = $("installRepo").value.trim();
+    if (!repo) throw new Error("Enter a repo path to install into");
+    flash("Installing…", false, true);
+    const result = await api("/api/simple/install", { method: "POST", body: JSON.stringify({ repo }) });
+    renderInstallResult(result);
+    const url = result.install && result.install.ui_url;
+    if (result.ok && url) {
+      if (!result.install.ui_ready) { flash("Waiting for new instance to start…", false, true); await waitForInstance(url); }
+      const opened = window.open(url, "_blank", "noopener,noreferrer");
+      if (!opened) result.message = (result.message || "Installed.") + " Pop-up blocked — use the URL below.";
+    }
+    return result;
+  });
 }
 
 bind();

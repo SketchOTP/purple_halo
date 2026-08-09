@@ -207,7 +207,13 @@ def run_execute(plan: dict[str, Any]) -> dict[str, Any]:
     backlog_work_id = plan.get("backlog_work_id") or plan.get("work_id")
     cycle_id = plan.get("cycle_id")
     work_package = plan.get("work_package") or {}
-    local_only = bool(plan.get("local_only") or work_package.get("local_only") or str(backlog_work_id or "") in {"product_cycle_closure"} or str(backlog_work_id or "").startswith("product_gap_") or str(backlog_work_id or "").startswith("operational_") or str(backlog_work_id or "").startswith("deliver_") or str(backlog_work_id or "").startswith("improve_"))
+    local_only = bool(
+        plan.get("local_only")
+        or work_package.get("local_only")
+        or str(backlog_work_id or "") in {"product_cycle_closure"}
+        or str(backlog_work_id or "").startswith(("product_gap_", "operational_", "deliver_", "improve_", "repair_"))
+        or str(plan.get("generated_from") or work_package.get("generated_from") or "") == "production_hold_repair"
+    )
     from loop_artifact_inputs import resolve_verification_contract
 
     _contract, verification_brief_meta = resolve_verification_contract(plan=plan, package=work_package)
@@ -396,6 +402,26 @@ def self_check() -> None:
     }
     dispatch_result = run_execute(plan)
     assert dispatch_result.get("dispatch_routed")
+
+    repair_plan = {
+        "plan_id": "repair_token_efficiency_repair_autonomous_iteration",
+        "cycle_id": 0,
+        "task_type": "verification_hardening",
+        "local_only": True,
+        "generated_from": "production_hold_repair",
+        "work_package": {
+            "work_id": "repair_token_efficiency_repair_autonomous_iteration",
+            "local_only": True,
+            "generated_from": "production_hold_repair",
+            "task_type": "verification_hardening",
+            "execution_steps": [{"type": "run_command", "command": ["python3", "scripts/loop_cost_policy.py", "--self-check"]}],
+        },
+        "execution_steps": [{"type": "run_command", "command": ["python3", "scripts/loop_cost_policy.py", "--self-check"]}],
+    }
+    repair_exec = run_execute(repair_plan)
+    assert repair_exec.get("local_only") is True
+    assert not repair_exec.get("dispatch_routed")
+    assert repair_exec.get("command_results")
 
     worker_plan = {
         "plan_id": "self_check_worker",

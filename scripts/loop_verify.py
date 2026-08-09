@@ -102,6 +102,27 @@ def _verify_done_when(done_when: list[str], changed: list[str]) -> list[dict[str
                     "detail": f"changed={rel in changed}",
                 }
             )
+        elif criterion.startswith("regression cleared for "):
+            cid = criterion[len("regression cleared for ") :].strip()
+            try:
+                from loop_production_hold import detect_hold_regressions
+
+                active = [
+                    r for r in detect_hold_regressions()
+                    if str(r.get("criterion_id") or "") == cid
+                ]
+                passed = not active
+                detail = "cleared" if passed else str(active[0].get("blocker_reason") or active[0].get("detail") or "regression_active")
+            except Exception as exc:
+                passed = False
+                detail = str(exc)[:120]
+            checks.append(
+                {
+                    "criterion": f"done_when: {criterion}",
+                    "passed": passed,
+                    "detail": detail,
+                }
+            )
         else:
             checks.append(
                 {
@@ -618,6 +639,12 @@ def self_check() -> None:
         },
     )
     assert result["passed"], result
+    regression_check = _verify_done_when(
+        ["regression cleared for autonomous_iteration"],
+        changed=[],
+    )
+    assert regression_check[0]["criterion"].startswith("done_when: regression cleared")
+    assert "detail" in regression_check[0]
     print("loop-verify: PASS")
 
 

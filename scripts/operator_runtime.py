@@ -164,9 +164,9 @@ def startup_health_checks() -> dict[str, Any]:
 
     schedule = load_json_safe(RUNTIME / "schedule.json")
     checks["schedule_loaded"] = bool(schedule) and (
-        "runs" in schedule
-        or schedule.get("every_hours")
-        or schedule.get("schedule_kind") == "interval"
+        schedule.get("every_hours") is not None
+        or schedule.get("schedule_kind") in ("interval", "times")
+        or bool(schedule.get("runs"))
     )
     ok = ok and checks["schedule_loaded"]
 

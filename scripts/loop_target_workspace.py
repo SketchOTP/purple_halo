@@ -15,6 +15,9 @@ from typing import Any
 CONTROL_ROOT = Path(__file__).resolve().parent.parent
 TARGET_CONFIG_PATH = CONTROL_ROOT / "project_memory" / "runtime" / "target_workspace.json"
 
+SCHEDULE_PATH = CONTROL_ROOT / "project_memory" / "runtime" / "schedule.json"
+
+
 ROUTING_TARGET = "target_product_work"
 ROUTING_CONTROL = "control_plane_maintenance"
 
@@ -301,6 +304,21 @@ def bootstrap_target(*, force: bool = False) -> dict[str, Any]:
 
 LIVE_TARGET_CYCLE_PROOF_PATH = CONTROL_ROOT / "project_memory" / "runtime" / "live_target_cycle_proof.json"
 TARGET_WORK_PROOF_PATH = CONTROL_ROOT / "project_memory" / "runtime" / "target_work_proof.json"
+
+
+def is_project_mode() -> bool:
+    if not SCHEDULE_PATH.is_file():
+        return False
+    try:
+        data = json.loads(SCHEDULE_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    return str(data.get("mode") or "") == "project_mode"
+
+
+def is_mission_product_work() -> bool:
+    """Product A: work toward operator mission on the host repo."""
+    return is_project_mode() or is_external_target()
 
 
 def is_external_target() -> bool:

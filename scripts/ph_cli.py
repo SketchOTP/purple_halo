@@ -56,23 +56,65 @@ def parse_every(text: str) -> float:
     return value
 
 
+def set_schedule_config(
+    *,
+    kind: str,
+    every: str | None = None,
+    for_days: float | None = None,
+    until_goal: bool = True,
+    runs: list[dict[str, Any]] | None = None,
+    every_weeks: int = 1,
+    timezone: str | None = None,
+) -> dict[str, Any]:
+    schedule = _load_json(SCHEDULE_PATH, default={"enabled": False, "runs": []})
+    kind = str(kind or "interval").strip().lower()
+    if kind not in ("interval", "times"):
+        raise SystemExit(f"unknown schedule kind: {kind!r}")
+    schedule["schedule_kind"] = kind
+    schedule["until_goal_achieved"] = bool(until_goal)
+    schedule["timezone"] = str(timezone or schedule.get("timezone") or "UTC")
+    schedule["every_weeks"] = max(1, int(every_weeks or 1))
+    if kind == "interval":
+        if not every:
+            raise SystemExit("interval schedule requires every (e.g. 2h)")
+        schedule["every_hours"] = parse_every(every)
+        schedule["for_days"] = float(for_days) if for_days is not None else None
+    else:
+        schedule.pop("every_hours", None)
+        if for_days is not None:
+            schedule["for_days"] = float(for_days)
+        cleaned: list[dict[str, Any]] = []
+        for slot in runs or []:
+            at = str(slot.get("at") or "").strip()
+            if not at:
+                continue
+            entry: dict[str, Any] = {"at": at}
+            days = slot.get("days")
+            if days:
+                entry["days"] = days
+            label = str(slot.get("label") or "").strip()
+            if label:
+                entry["label"] = label
+            cleaned.append(entry)
+        if not cleaned:
+            raise SystemExit("times schedule requires at least one run time")
+        schedule["runs"] = cleaned
+    _save_json(SCHEDULE_PATH, schedule)
+    return schedule
+
+
 def set_frequency(
     *,
     every: str,
     for_days: float | None,
     until_goal: bool,
 ) -> dict[str, Any]:
-    hours = parse_every(every)
-    schedule = _load_json(SCHEDULE_PATH, default={"enabled": False, "runs": []})
-    schedule["schedule_kind"] = "interval"
-    schedule["every_hours"] = hours
-    schedule["for_days"] = float(for_days) if for_days is not None else None
-    schedule["until_goal_achieved"] = bool(until_goal)
-    schedule["runs"] = schedule.get("runs") or []
-    schedule["timezone"] = schedule.get("timezone") or "UTC"
-    # Keep enabled as-is; play turns it on.
-    _save_json(SCHEDULE_PATH, schedule)
-    return schedule
+    return set_schedule_config(
+        kind="interval",
+        every=every,
+        for_days=for_days,
+        until_goal=until_goal,
+    )
 
 
 def play() -> dict[str, Any]:
@@ -124,11 +166,16 @@ def set_goal(goal_path: str) -> Path:
     src = Path(goal_path).expanduser().resolve()
     if not src.is_file():
         raise SystemExit(f"goal file not found: {src}")
+    return set_goal_content(src.read_text(encoding="utf-8"))
+
+
+def set_goal_content(content: str) -> Path:
     dest = ROOT / "project_goals.md"
-    dest.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+    text = (content or "").rstrip()
+    dest.write_text(text + ("\n" if text else ""), encoding="utf-8")
     schedule = _load_json(SCHEDULE_PATH, default={"runs": []})
     schedule["goal_file"] = "project_goals.md"
-    schedule["goal_file_source"] = str(src)
+    schedule.pop("goal_file_source", None)
     _save_json(SCHEDULE_PATH, schedule)
     return dest
 

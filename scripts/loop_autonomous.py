@@ -743,12 +743,111 @@ def _has_meaningful_work(state: dict[str, Any] | None = None) -> tuple[bool, str
     return False, "no_meaningful_work"
 
 
+def _project_mode_runs_today(history: dict[str, Any] | None = None) -> int:
+    """Count successful project_mode runs today (simple daily cap)."""
+    history = history or load_autonomous_history()
+    today = _today()
+    return sum(
+        1
+        for r in history.get("sequence") or []
+        if r.get("ran")
+        and str(r.get("started_at") or "").startswith(today)
+        and str(r.get("outcome_class") or "") not in {"no_due_slot", "operator_paused"}
+    )
+
+
+def _decide_project_mode_run(
+    *,
+    trigger: str,
+    state: dict[str, Any],
+    schedule: dict[str, Any],
+    continuity: dict[str, Any],
+) -> dict[str, Any]:
+    """Product A: drop-in loop — operator, budget, daily cap, mission complete."""
+    history = load_autonomous_history()
+    max_runs = int(schedule.get("max_runs_per_day") or 8)
+    today_count = _project_mode_runs_today(history)
+    decision: dict[str, Any] = {
+        "decision_id": str(uuid.uuid4())[:8],
+        "trigger": trigger,
+        "decided_at": _now_iso(),
+        "allow": True,
+        "classification": "run",
+        "why_run": "",
+        "why_selected": "",
+        "research_used": None,
+        "research_reason": "deferred_to_cycle",
+        "continue_later": True,
+        "continue_reason": "",
+        "stop_condition": "",
+        "continuity": continuity,
+        "max_runs_per_day": max_runs,
+        "runs_today": today_count,
+        "mode": "project_mode",
+    }
+    if not history.get("autonomous_allowed", True):
+        decision.update(
+            allow=False,
+            classification=str(history.get("stop_classification") or "operator_paused"),
+            why_run=str(history.get("stop_reason") or "operator paused"),
+            continue_later=False,
+            stop_condition=str(history.get("stop_classification") or "operator_paused"),
+        )
+        return decision
+    if state.get("budget_blocked"):
+        decision.update(
+            allow=False,
+            classification="budget_blocked",
+            why_run="budget_blocked: " + str(state.get("budget_blocked_reason") or "budget_blocked"),
+            continue_later=True,
+            continue_reason="resume when budget block is cleared",
+            stop_condition="budget_blocked",
+        )
+        return decision
+    complete = evaluate_product_complete(state=state)
+    if complete.get("goal_realized") or complete.get("product_complete"):
+        decision.update(
+            allow=False,
+            classification="goal_realized",
+            why_run="operator mission success criteria are complete",
+            continue_later=False,
+            stop_condition="goal_realized",
+            product_complete=complete,
+            goal_realized=complete,
+            goal_realization_progress=complete.get("progress") or {},
+        )
+        return decision
+    if today_count >= max_runs:
+        decision.update(
+            allow=False,
+            classification="max_runs_per_day",
+            why_run=f"already executed {today_count} runs today (max {max_runs})",
+            continue_later=True,
+            continue_reason="resume next day within schedule windows",
+            stop_condition="max_runs_per_day",
+        )
+        return decision
+    focus = continuity.get("active_gap_focus") or {}
+    decision["why_selected"] = str(focus.get("id") or continuity.get("next_intended_capability_step") or "mission")
+    decision["why_run"] = "project_mode scheduled run toward operator mission"
+    decision["continue_reason"] = "continue until mission complete, blocker, or operator pause"
+    decision["stop_condition"] = "goal_realized|budget_blocked|operator_pause|max_runs_per_day"
+    decision["product_complete"] = complete
+    return decision
+
+
 def decide_autonomous_run(*, trigger: str, state: dict[str, Any] | None = None) -> dict[str, Any]:
     """Pre-run gate for repeated self-mode autonomy."""
     import loop_target_workspace as ltw
     from loop_state import load_state
 
     state = state if state is not None else load_state()
+    schedule = load_schedule_config()
+    continuity = _continuity_next_step(state)
+    if str(schedule.get("mode")) == "project_mode":
+        return _decide_project_mode_run(
+            trigger=trigger, state=state, schedule=schedule, continuity=continuity
+        )
     from loop_production_ops import ensure_production_candidate_operations, production_ops_active
     from loop_goal_delivery import criteria_complete, ensure_goal_delivery_mode, goal_delivery_active
     from loop_production_hold import (
@@ -759,8 +858,6 @@ def decide_autonomous_run(*, trigger: str, state: dict[str, Any] | None = None) 
     )
     history = ensure_goal_delivery_mode()
     history = ensure_production_hold_mode()
-    schedule = load_schedule_config()
-    continuity = _continuity_next_step(state)
     decision = {
         "decision_id": str(uuid.uuid4())[:8],
         "trigger": trigger,

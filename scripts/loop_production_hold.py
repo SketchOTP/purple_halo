@@ -343,11 +343,15 @@ def hold_repair_specs() -> list[dict[str, Any]]:
             "objective": "Repair " + work_class + " affecting " + cid,
             "why_now": "production_hold_mode regression: " + str(item.get("regression_class") or ""),
             "detect_open": lambda: True,
-            "target_files": ["scripts/loop_production_hold.py"],
-            "proposed_repo_delta": ["scripts/loop_production_hold.py"],
+            "target_files": [],
+            "proposed_repo_delta": [],
+            "expected_outputs": [],
             "execution_steps": [{"type": "run_command", "command": verify_cmd}],
             "verification_commands": [verify_cmd],
-            "done_when": ["regression cleared for " + cid],
+            "done_when": [
+                "regression cleared for " + cid,
+                f"command passes: {' '.join(verify_cmd)}",
+            ],
             "generated_from": "production_hold_repair",
         })
         priority += 1

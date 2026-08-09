@@ -12,9 +12,22 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent.parent
 
 DISPATCHABLE_TYPES = frozenset({"code_implementation", "verification_hardening"})
+LOCAL_ONLY_WORK_PREFIXES = ("product_gap_", "operational_", "improve_", "deliver_", "repair_")
+
+
+def is_local_only_item(item: dict[str, Any]) -> bool:
+    wid = str(item.get("work_id") or "")
+    return bool(
+        item.get("local_only")
+        or wid == "product_cycle_closure"
+        or wid.startswith(LOCAL_ONLY_WORK_PREFIXES)
+        or str(item.get("generated_from") or "") == "production_hold_repair"
+    )
 
 
 def resolve_dispatch_target(item: dict[str, Any], *, research: dict[str, Any] | None = None) -> str:
+    if is_local_only_item(item):
+        return ""
     explicit = str(item.get("dispatch_target") or "").strip()
     if explicit:
         return explicit
@@ -86,7 +99,7 @@ def build_work_package(
         for cmd in vcmds:
             done_when.append(f"command passes: {' '.join(cmd)}")
     force_worker_bridge = bool(item.get("force_worker_bridge"))
-    local_only = bool(item.get("local_only") or str(item.get("work_id") or "") == "product_cycle_closure" or str(item.get("work_id") or "").startswith("product_gap_") or str(item.get("work_id") or "").startswith("operational_"))
+    local_only = is_local_only_item(item)
     dispatch_target = "" if (force_worker_bridge or local_only) else resolve_dispatch_target(item, research=research)
     handler_inputs = dict(item.get("handler_inputs") or _default_handler_inputs(
         item, cycle_id=cycle_id, research=research, goal_text=goal_text
@@ -227,6 +240,29 @@ def self_check() -> None:
     assert pkg["execution_steps"] == []
     fields = package_to_plan_fields(pkg)
     assert fields["work_package"]["work_id"] == "test_item"
+    repair = build_work_package(
+        {
+            "work_id": "repair_token_efficiency_repair_autonomous_iteration",
+            "title": "Hold repair",
+            "task_type": "verification_hardening",
+            "local_only": True,
+            "generated_from": "production_hold_repair",
+            "goal_gap_addressed": "autonomous_iteration",
+            "target_files": [],
+            "proposed_repo_delta": [],
+            "execution_steps": [{"type": "run_command", "command": ["python3", "scripts/loop_cost_policy.py", "--self-check"]}],
+            "verification_commands": [["python3", "scripts/loop_cost_policy.py", "--self-check"]],
+            "done_when": ["regression cleared for autonomous_iteration"],
+            "objective": "repair",
+        },
+        cycle_id=62,
+        research={"summary": "test", "capability_area": "research_synthesis"},
+        goal_text="Product Goal\n",
+        status_text="status",
+        repo_snapshot={},
+    )
+    assert repair["local_only"] is True
+    assert repair["dispatch_target"] == ""
     print("loop-work-package: PASS")
 
 

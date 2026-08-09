@@ -82,6 +82,18 @@ def summarize_run(
     return "; ".join(parts)
 
 
+def count_report_lines(path: Path | None = None) -> int:
+    """Count stamped run lines in RUN_REPORT.md (excludes header/blank lines)."""
+    path = path or REPORT_PATH
+    if not path.is_file():
+        return 0
+    return sum(
+        1
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.strip().startswith("#")
+    )
+
+
 def self_check() -> None:
     assert summarize_run(
         status="failure",
@@ -91,6 +103,7 @@ def self_check() -> None:
     assert line.startswith(stamp()[:4]) or len(line) > 10
     text = REPORT_PATH.read_text(encoding="utf-8")
     assert line in text
+    assert count_report_lines() >= 1
     print("run-report: PASS")
 
 

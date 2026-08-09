@@ -11,7 +11,7 @@
     <header class="top">
       <div class="brand">
         <span class="brand-mark" aria-hidden="true"></span>
-        <h1>purple_halo</h1>
+        <h1>purple_halo <span id="repoTag" class="repo-tag" hidden></span></h1>
       </div>
       <div class="top-right">
         <span id="serviceLed" class="service-led" title="Service status" aria-label="Service status"></span>
@@ -51,6 +51,7 @@
           <div class="panel-body">
             <label class="panel-field">Into another repo
               <input id="installRepo" type="text" placeholder="/path/to/project" />
+              <span class="field-hint">Deploys purple_halo with the mission and schedule set here</span>
             </label>
             <div class="panel-spacer" aria-hidden="true"></div>
             <button id="btnInstall" type="button" class="secondary action-icon-btn panel-action" aria-label="Install" title="Install">
@@ -68,20 +69,54 @@
         <section class="card card-fill">
           <h2 class="section-head">Schedule</h2>
           <div class="panel-body">
-            <div class="field-row">
-              <label>Every
-                <span class="inline">
-                  <input id="everyHours" type="number" min="0.25" step="0.25" value="2" />
-                  <span>hours</span>
-                </span>
-              </label>
-              <label>For
-                <span class="inline">
-                  <input id="forDays" type="number" min="1" step="1" value="10" />
-                  <span>days</span>
-                </span>
-              </label>
+            <div class="schedule-toggle" role="group" aria-label="Schedule mode">
+              <button type="button" class="sch-toggle-opt" data-kind="interval" aria-pressed="true">Interval</button>
+              <button type="button" class="sch-toggle-opt" data-kind="times" aria-pressed="false">Times</button>
             </div>
+
+            <div id="scheduleInterval" class="schedule-mode">
+              <div class="field-row">
+                <label>Every
+                  <span class="inline">
+                    <input id="everyHours" type="number" min="0.25" step="0.25" value="2" />
+                    <span>hours</span>
+                  </span>
+                </label>
+                <label>For
+                  <span class="inline">
+                    <input id="forDays" type="number" min="1" step="1" value="10" />
+                    <span>days</span>
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            <div id="scheduleTimes" class="schedule-mode schedule-mode-compact" hidden>
+              <div class="weekday-row" aria-label="Days of week">
+                <label class="wd-check"><input type="checkbox" data-wd="0" checked /> M</label>
+                <label class="wd-check"><input type="checkbox" data-wd="1" checked /> T</label>
+                <label class="wd-check"><input type="checkbox" data-wd="2" checked /> W</label>
+                <label class="wd-check"><input type="checkbox" data-wd="3" checked /> T</label>
+                <label class="wd-check"><input type="checkbox" data-wd="4" checked /> F</label>
+                <label class="wd-check"><input type="checkbox" data-wd="5" checked /> S</label>
+                <label class="wd-check"><input type="checkbox" data-wd="6" checked /> S</label>
+              </div>
+              <div class="times-meta-row">
+                <label class="compact-inline">Every
+                  <input id="everyWeeks" type="number" min="1" step="1" value="1" />
+                  <span>wk</span>
+                </label>
+                <label class="compact-inline">For
+                  <input id="forDaysTimes" type="number" min="1" step="1" value="10" />
+                  <span>days</span>
+                </label>
+              </div>
+              <div class="times-slot-row">
+                <div id="timeSlots" class="time-slots"></div>
+                <button id="btnAddSlot" type="button" class="link-btn slot-add" title="Add time">+</button>
+              </div>
+            </div>
+
             <label class="check">
               <input id="untilGoal" type="checkbox" checked />
               Stop when goal is achieved
@@ -96,18 +131,22 @@
       <!-- Row 4: Goal — full width -->
       <div class="flow-step span-2" id="stepGoal">
         <section class="card">
-          <h2 class="section-head">Goal</h2>
-          <div class="row">
-            <label class="grow">Goal file
-              <input id="goalPath" type="text" placeholder="/path/to/goals.md" />
-            </label>
-            <button id="btnGoal" type="button" class="secondary action-icon-btn" aria-label="Use goal" title="Use goal">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+          <h2 class="section-head">Mission</h2>
+          <div class="goal-body">
+            <textarea id="goalEditor" class="goal-editor" spellcheck="false" placeholder="What purple_halo should work on in this repo…"></textarea>
+            <button id="btnGoal" type="button" class="secondary action-icon-btn goal-save" aria-label="Save goal" title="Save goal">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>
             </button>
           </div>
-          <pre id="goalPreview" class="preview"></pre>
         </section>
       </div>
+
+      <!-- Progress -->
+      <section class="card progress-card span-2" id="stepProgress">
+        <h2 class="section-head">Progress</h2>
+        <p id="progressSummary" class="progress-summary"></p>
+        <p id="progressDetail" class="progress-detail note"></p>
+      </section>
 
       <!-- Row 5: Report — full width -->
       <section class="card report-card span-2">

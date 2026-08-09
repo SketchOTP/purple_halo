@@ -100,6 +100,16 @@ def load_policy() -> dict[str, Any]:
     merged["budget_mode"] = mode
     merged.update(MODE_LIMITS[mode])
     merged["allow_expensive_execution"] = bool(merged.get("allow_expensive_execution"))
+    try:
+        import loop_target_workspace as _ltw
+        if _ltw.is_project_mode():
+            merged["budget_mode"] = str(merged.get("budget_mode") or "balanced")
+            merged["allow_expensive_execution"] = True
+            merged["max_worker_sessions_per_day"] = max(int(merged.get("max_worker_sessions_per_day") or 0), 8)
+            merged["max_code_implementation_attempts_per_day"] = max(int(merged.get("max_code_implementation_attempts_per_day") or 0), 8)
+            merged["max_research_calls_per_day"] = max(int(merged.get("max_research_calls_per_day") or 0), 8)
+    except Exception:
+        pass
     merged["pin_expensive_execution"] = bool(merged.get("pin_expensive_execution"))
     return merged
 

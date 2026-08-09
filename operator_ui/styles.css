@@ -91,6 +91,11 @@ body {
   box-shadow: 0 0 16px rgba(var(--accent-glow-rgb), 0.55);
   flex-shrink: 0;
 }
+.repo-tag {
+  color: var(--accent-glow);
+  font-weight: 800;
+  text-shadow: 0 0 14px rgba(var(--accent-glow-rgb), 0.5);
+}
 .top h1 {
   margin: 0;
   font-size: 1.35rem;
@@ -270,6 +275,165 @@ input[type="checkbox"] {
   font-size: 0.88rem;
 }
 .check input { width: auto; margin: 0; }
+
+.schedule-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  padding: 2px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--btn-dark);
+  flex-shrink: 0;
+  align-self: flex-start;
+  width: fit-content;
+}
+.sch-toggle-opt {
+  padding: 3px 10px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  box-shadow: none;
+  transition: color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+.sch-toggle-opt[aria-pressed="true"] {
+  color: #f0e6ff;
+  background: linear-gradient(180deg, #7700ff 0%, #5800cc 100%);
+  box-shadow: 0 0 8px rgba(var(--accent-glow-rgb), 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+.sch-toggle-opt:hover:not([aria-pressed="true"]) {
+  color: var(--text);
+}
+
+.schedule-mode {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 0 0 auto;
+  min-height: 0;
+}
+#scheduleInterval.schedule-mode { flex: 1; }
+.schedule-mode-compact { gap: 4px; }
+.schedule-mode[hidden] { display: none !important; }
+
+.weekday-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+.wd-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+  font-size: 0.62rem;
+  font-weight: 700;
+  cursor: pointer;
+  color: var(--muted);
+}
+.wd-check:has(input:checked) {
+  color: var(--accent-glow);
+  border-color: var(--accent);
+}
+.wd-check input { position: absolute; opacity: 0; width: 0; height: 0; }
+
+.times-meta-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.times-meta-row label { margin: 0; }
+.compact-inline {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  margin: 0;
+}
+.compact-inline input {
+  width: 2.8rem;
+  padding: 3px 5px;
+  margin: 0;
+}
+.compact-inline span { color: var(--muted); font-size: 0.72rem; }
+
+.times-slot-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+.time-slots {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+  max-height: 54px;
+  overflow-y: auto;
+}
+.time-slot {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.time-slot .slot-at {
+  flex: 1;
+  margin: 0;
+  padding: 3px 5px;
+  font-size: 0.78rem;
+}
+.slot-remove {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 3px;
+  background: var(--btn-dark);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.slot-remove:hover { color: #ff6b6b; }
+
+.link-btn {
+  align-self: flex-start;
+  padding: 2px 0;
+  background: none;
+  border: none;
+  color: var(--accent-glow);
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  box-shadow: none;
+}
+.link-btn.slot-add {
+  padding: 2px 7px;
+  font-size: 0.95rem;
+  line-height: 1.2;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.link-btn:hover { text-decoration: underline; }
+
+#stepFrequency .panel-body .check {
+  height: auto;
+  min-height: 0;
+  margin-top: 2px;
+  font-size: 0.78rem;
+}
 
 /* ── Action buttons ── */
 button {
@@ -468,9 +632,24 @@ button.primary:active:not(:disabled) {
   box-shadow: var(--vcr-inset);
   font-size: 0.9rem;
 }
+.flash.ok {
+  color: var(--accent-2);
+  border-color: rgba(0, 255, 136, 0.45);
+  box-shadow: var(--vcr-inset), 0 0 12px rgba(0, 255, 136, 0.15);
+}
 .flash.err {
   color: var(--danger);
   border-color: rgba(255, 51, 102, 0.45);
+}
+button.action-icon-btn.saved svg {
+  color: var(--accent-2);
+  filter: drop-shadow(0 0 8px rgba(0, 255, 136, 0.55));
+}
+.install-result.install-fail {
+  border-color: rgba(255, 51, 102, 0.35);
+}
+.install-result:not([hidden]) .note {
+  color: var(--accent-2);
 }
 .note { color: var(--accent-2); font-size: 0.88rem; margin: 0; }
 
@@ -501,3 +680,7 @@ button.primary:active:not(:disabled) {
 .report:empty { display: none; }
 .report { max-height: 200px; }
 .install-details { margin-top: 6px; max-height: 100px; }
+
+.progress-summary { margin: 0 0 6px; font-size: 15px; font-weight: 600; color: var(--text); }
+.progress-detail { margin: 0; font-size: 13px; color: var(--muted); line-height: 1.45; }
+.progress-detail:empty { display: none; }

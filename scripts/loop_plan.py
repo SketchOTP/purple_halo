@@ -606,9 +606,15 @@ def run_plan(
     open_backlog = open_items(backlog)
 
     # High-priority capability gaps block product work (scheduler, etc.)
-    urgent_caps = [g for g in capability_gaps if int(g.get("priority", 99)) < CAPABILITY_GAP_PRIORITY_THRESHOLD]
-    candidates = build_candidate_work(urgent_caps, cycle_id=cycle_id, research=research) if urgent_caps else []
-    chosen, skipped = choose_step(candidates, state, continuity_meta=continuity_meta)
+    import loop_target_workspace as ltw_plan
+    if ltw_plan.is_project_mode():
+        urgent_caps = []
+        candidates = []
+        chosen, skipped = None, []
+    else:
+        urgent_caps = [g for g in capability_gaps if int(g.get("priority", 99)) < CAPABILITY_GAP_PRIORITY_THRESHOLD]
+        candidates = build_candidate_work(urgent_caps, cycle_id=cycle_id, research=research) if urgent_caps else []
+        chosen, skipped = choose_step(candidates, state, continuity_meta=continuity_meta)
 
     if chosen is None and open_backlog:
         from loop_backlog import is_bookkeeping_item, is_meaningful_product_item
@@ -718,6 +724,9 @@ def run_plan(
         "capability_gaps": capability_gaps,
         "backlog": backlog,
         "backlog_work_id": chosen.get("backlog_work_id") or chosen.get("work_id") if chosen else None,
+        "local_only": bool(chosen.get("local_only")) if chosen else False,
+        "generated_from": (chosen or {}).get("generated_from") or "",
+        "hold_work_class": (chosen or {}).get("hold_work_class") or "",
         "candidate_skipped": skipped,
         "bounded_step": {
             "id": chosen["id"],

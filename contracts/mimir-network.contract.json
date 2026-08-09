@@ -18,7 +18,9 @@
     "canonical_client": "https://<mimir-host>.<tailnet>.ts.net:8082",
     "server_loopback": "http://127.0.0.1:8787",
     "canonical_mcp": "https://<mimir-host>.<tailnet>.ts.net:8082/mcp",
-    "canonical_api_health": "https://<mimir-host>.<tailnet>.ts.net:8082/api/health"
+    "canonical_api_health": "https://<mimir-host>.<tailnet>.ts.net:8082/api/health",
+    "endpoint_env_var": "MIMIR_ENDPOINT",
+    "endpoint_notes": "Real tailnet host is site-local; set MIMIR_ENDPOINT rather than hardcoding it."
   },
   "ports": {
     "container_api": 8787,

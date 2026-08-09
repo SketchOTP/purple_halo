@@ -579,10 +579,15 @@ def action_service_restart() -> dict[str, Any]:
 
 def _parse_install_output(stdout: str) -> dict[str, Any]:
     """Best-effort structured fields from install_to_repo.sh output."""
-    details: dict[str, Any] = {"unit": "", "port": None, "ui_url": ""}
+    details: dict[str, Any] = {"unit": "", "port": None, "ui_url": "", "ui_ready": False}
     for line in stdout.splitlines():
         raw = line.strip()
-        if raw.startswith("service:") and "port" in raw:
+        if raw.startswith("UI ready:"):
+            details["ui_url"] = raw.split("UI ready:", 1)[1].strip()
+            details["ui_ready"] = True
+        elif raw.startswith("UI:") and not details.get("ui_url"):
+            details["ui_url"] = raw.split("UI:", 1)[1].strip()
+        elif raw.startswith("service:") and "port" in raw:
             details["unit"] = raw.split("(", 1)[0].replace("service:", "").strip()
             try:
                 port = int(raw.rsplit("port", 1)[-1].strip().rstrip(")"))
@@ -590,13 +595,15 @@ def _parse_install_output(stdout: str) -> dict[str, Any]:
                 port = None
             if port:
                 details["port"] = port
-                details["ui_url"] = f"http://127.0.0.1:{port}/"
+                if not details.get("ui_url"):
+                    details["ui_url"] = f"http://127.0.0.1:{port}/"
     return details
 
 
 def simple_status() -> dict[str, Any]:
     sys.path.insert(0, str(SCRIPTS))
     from ph_cli import REPORT_PATH
+    from run_report import count_report_lines
     from operator_runtime import read_service_status, service_unit_for_repo
 
     schedule = _load_json(RUNTIME / "schedule.json")
@@ -615,13 +622,43 @@ def simple_status() -> dict[str, Any]:
     last_run: dict[str, Any] = {}
     if attempts and isinstance(attempts[-1], dict):
         last_run = attempts[-1]
-    schedule_saved = schedule.get("every_hours") is not None
+    cycle_progress: dict[str, Any] = {}
+    loop_state_path = RUNTIME / "loop_state.json"
+    if loop_state_path.is_file():
+        try:
+            loop_doc = json.loads(loop_state_path.read_text(encoding="utf-8"))
+            cs = loop_doc.get("control_state") or loop_doc
+            lc = cs.get("last_cycle") or {}
+            cycle_progress = {
+                "cycle_id": cs.get("cycle_id"),
+                "status": cs.get("status") or "",
+                "next_focus": cs.get("next_focus") or "",
+                "last_run_at": cs.get("last_run_at") or "",
+                "plan_id": lc.get("plan_id") or "",
+                "summary": lc.get("summary") or "",
+                "verification_passed": bool(lc.get("verification_passed")),
+                "meaningful_product_progress": bool(lc.get("meaningful_product_progress")),
+                "blocked_classification": lc.get("blocked_classification") or cs.get("blocked_classification") or "",
+                "outcome_reason": lc.get("outcome_reason") or cs.get("cycle_outcome_reason") or "",
+            }
+        except (OSError, json.JSONDecodeError):
+            cycle_progress = {}
+    schedule_saved = bool(schedule.get("every_hours") or schedule.get("runs"))
+    kind = str(schedule.get("schedule_kind") or "")
+    if kind not in ("interval", "times"):
+        kind = "interval" if schedule.get("every_hours") else "times"
+    is_master = str(schedule.get("mode") or "self_product_mode") != "project_mode"
     return {
         "repo": str(ROOT),
         "repo_name": ROOT.name,
+        "is_master": is_master,
         "playing": playing,
+        "schedule_kind": kind,
         "every_hours": schedule.get("every_hours"),
         "for_days": schedule.get("for_days"),
+        "every_weeks": int(schedule.get("every_weeks") or 1),
+        "timezone": schedule.get("timezone") or "UTC",
+        "runs": schedule.get("runs") or [],
         "until_goal_achieved": bool(schedule.get("until_goal_achieved")),
         "campaign_started_at": schedule.get("campaign_started_at"),
         "campaign_stop_reason": schedule.get("campaign_stop_reason") or "",
@@ -635,24 +672,44 @@ def simple_status() -> dict[str, Any]:
         "ui_url": ui_url,
         "service_state": svc.get("state") or "unknown",
         "service_unit": svc.get("unit") or service_unit_for_repo(ROOT),
-        "run_count": len(attempts),
+        "run_count": count_report_lines(REPORT_PATH),
         "last_run": last_run,
+        "cycle_progress": cycle_progress,
     }
 
 
 def simple_frequency(body: dict[str, Any] | None = None) -> dict[str, Any]:
     body = body or {}
     sys.path.insert(0, str(SCRIPTS))
-    from ph_cli import set_frequency
+    from ph_cli import set_schedule_config
 
-    every = str(body.get("every") or "2h")
+    kind = str(body.get("kind") or "interval").strip().lower()
     for_days = body.get("for_days")
     if for_days is not None and for_days != "":
         for_days = float(for_days)
     else:
         for_days = None
     until_goal = bool(body.get("until_goal", True))
-    set_frequency(every=every, for_days=for_days, until_goal=until_goal)
+    try:
+        if kind == "times":
+            set_schedule_config(
+                kind="times",
+                runs=list(body.get("runs") or []),
+                for_days=for_days,
+                until_goal=until_goal,
+                every_weeks=int(body.get("every_weeks") or 1),
+                timezone=str(body.get("timezone") or "UTC"),
+            )
+        else:
+            set_schedule_config(
+                kind="interval",
+                every=str(body.get("every") or "2h"),
+                for_days=for_days,
+                until_goal=until_goal,
+                timezone=str(body.get("timezone") or "UTC"),
+            )
+    except SystemExit as exc:
+        return {"ok": False, "error": str(exc), "status": simple_status()}
     return {"ok": True, "message": "Schedule saved", "status": simple_status()}
 
 
@@ -674,17 +731,20 @@ def simple_pause(body: dict[str, Any] | None = None) -> dict[str, Any]:
 
 def simple_goal(body: dict[str, Any] | None = None) -> dict[str, Any]:
     body = body or {}
-    path = str(body.get("path") or "").strip()
-    if not path:
-        return {"ok": False, "error": "goal path required", "status": simple_status()}
     sys.path.insert(0, str(SCRIPTS))
-    from ph_cli import set_goal
+    from ph_cli import set_goal, set_goal_content
 
     try:
-        dest = set_goal(path)
+        if body.get("content") is not None:
+            dest = set_goal_content(str(body["content"]))
+        else:
+            path = str(body.get("path") or "").strip()
+            if not path:
+                return {"ok": False, "error": "goal content or path required", "status": simple_status()}
+            dest = set_goal(path)
     except SystemExit as exc:
         return {"ok": False, "error": str(exc), "status": simple_status()}
-    return {"ok": True, "message": f"Goal set: {dest}", "status": simple_status()}
+    return {"ok": True, "message": f"Goal saved: {dest.name}", "status": simple_status()}
 
 
 def _run_now_message(result: dict[str, Any]) -> str:
@@ -715,8 +775,8 @@ def simple_install(body: dict[str, Any] | None = None) -> dict[str, Any]:
     repo = str(body.get("repo") or "").strip()
     if not repo:
         return {"ok": False, "error": "repo path required", "status": simple_status()}
-    goal = str(body.get("goal") or "").strip()
     cmd = ["bash", str(SCRIPTS / "install_to_repo.sh"), repo]
+    goal = str(body.get("goal") or "").strip()
     if goal:
         cmd.extend(["--goal", goal])
     try:
@@ -730,9 +790,9 @@ def simple_install(body: dict[str, Any] | None = None) -> dict[str, Any]:
     if proc.returncode == 0:
         message = f"Installed into {repo}."
         if install_details.get("ui_url"):
-            message += f" Open {install_details['ui_url']} to set frequency and press Play."
+            message += f" Open {install_details['ui_url']} — schedule and goal copied; press Play when ready."
         else:
-            message += " Open that repo's purple_halo UI to set frequency and press Play."
+            message += " Open that repo's purple_halo UI — schedule and goal copied; press Play when ready."
     else:
         message = out[-500:] or "install failed"
     return {
