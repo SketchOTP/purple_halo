@@ -19,6 +19,16 @@ HISTORY_PATH = ROOT / "project_memory" / "runtime" / "schedule_run_history.json"
 LOOP = ROOT / "scripts" / "purple_halo_loop.py"
 
 _DAY_NAMES = {"mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4, "sat": 5, "sun": 6}
+_FRESH_REPO_SCHEDULE: dict[str, Any] = {
+    "enabled": False,
+    "timezone": "UTC",
+    "schedule_kind": "interval",
+    "every_hours": 2,
+    "for_days": None,
+    "until_goal_achieved": False,
+    "runs": [],
+    "max_runs_per_day": 24,
+}
 
 
 def _now_iso() -> str:
@@ -26,6 +36,8 @@ def _now_iso() -> str:
 
 
 def load_schedule() -> dict[str, Any]:
+    if not ACTIVE.is_file() and not DEFAULT.is_file():
+        return dict(_FRESH_REPO_SCHEDULE)
     path = ACTIVE if ACTIVE.is_file() else DEFAULT
     return json.loads(path.read_text(encoding="utf-8"))
 

@@ -48,3 +48,9 @@ def test_ci_declares_and_installs_test_dependencies():
     assert "pytest" in requirements
     assert "pip install" in workflow
     assert "requirements-dev.txt" in workflow
+
+
+def test_schedule_self_check_has_fresh_checkout_fallback():
+    text = (ROOT / "scripts/loop_schedule.py").read_text()
+    assert "_FRESH_REPO_SCHEDULE" in text
+    assert '"enabled": False' in text
