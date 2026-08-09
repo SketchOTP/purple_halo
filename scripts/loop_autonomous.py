@@ -643,6 +643,13 @@ def evaluate_product_complete(
     progress["partial"] = partial
     goal_realized = operationally_realized
     try:
+        from loop_backlog import load_backlog
+        if str(load_backlog().get("empty_reason") or "") == "product_complete":
+            goal_realized = True
+            reason = "product_complete"
+    except Exception:
+        pass
+    try:
         from loop_goal_delivery import criteria_complete, goal_delivery_active
         if goal_delivery_active():
             if not criteria_complete():
@@ -965,7 +972,7 @@ def decide_autonomous_run(*, trigger: str, state: dict[str, Any] | None = None) 
                 return decision
             decision.update(
                 allow=False,
-                classification="goal_realized",
+                classification="product_complete" if complete.get("reason") == "product_complete" else "goal_realized",
                 why_run="all project_goals.md success criteria are complete",
                 continue_later=False,
                 stop_condition="goal_realized",
@@ -977,7 +984,7 @@ def decide_autonomous_run(*, trigger: str, state: dict[str, Any] | None = None) 
     elif complete.get("goal_realized") or complete.get("product_complete"):
         decision.update(
             allow=False,
-            classification="goal_realized",
+            classification="product_complete" if complete.get("reason") == "product_complete" else "goal_realized",
             why_run="purple_halo project goal is realized",
             continue_later=False,
             stop_condition="goal_realized",

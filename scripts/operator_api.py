@@ -7,6 +7,7 @@ import json
 import subprocess
 import sys
 import traceback
+import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -25,8 +26,13 @@ def _load_json(path: Path) -> dict[str, Any]:
         return {}
     try:
         return json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return {}
+    except (OSError, json.JSONDecodeError) as exc:
+        quarantine = path.with_name(path.name + ".corrupt." + str(int(__import__('time').time())))
+        try:
+            path.replace(quarantine)
+        except OSError:
+            pass
+        raise ValueError(f"invalid runtime JSON {path}: {exc}")
 
 
 def _save_json(path: Path, data: dict[str, Any]) -> None:
@@ -437,8 +443,8 @@ def post_schedule(body: dict[str, Any]) -> dict[str, Any]:
                 else:
                     cleaned.append({"at": at, "label": label})
             body["runs"] = cleaned
-    if "mode" in body and str(body["mode"]) != "self_product_mode":
-        errors.append("mode must remain self_product_mode")
+    if "mode" in body and str(body["mode"]) not in {"self_product_mode", "project_mode"}:
+        errors.append("mode must be self_product_mode or project_mode")
     if errors:
         return {
             "success": False,
@@ -448,7 +454,7 @@ def post_schedule(body: dict[str, Any]) -> dict[str, Any]:
             "schedule": current,
         }
     allowed = {
-        "enabled", "timezone", "runs", "max_runs_per_day", "mode", "cheap_default",
+        "enabled", "timezone", "runs", "max_runs_per_day", "mode", "schedule_kind", "every_hours", "for_days", "every_weeks", "until_goal_achieved", "cheap_default",
         "monthly_token_ceiling", "auto_pause_conditions", "operator_review_trigger",
         "production_candidate_operations", "architecture_freeze", "goal_delivery_mode",
     }
@@ -492,7 +498,12 @@ def post_budget(body: dict[str, Any]) -> dict[str, Any]:
     if "allow_expensive_execution" in body:
         val = body["allow_expensive_execution"]
         if isinstance(val, str):
-            val = val.lower() in {"true", "1", "yes"}
+            if val.lower() in {"true", "1", "yes"}:
+                val = True
+            elif val.lower() in {"false", "0", "no"}:
+                val = False
+            else:
+                errors.append("allow_expensive_execution must be boolean")
         if not isinstance(val, bool):
             errors.append("allow_expensive_execution must be boolean")
         else:
@@ -556,7 +567,8 @@ def action_service_restart() -> dict[str, Any]:
     from operator_runtime import write_service_status
 
     write_service_status(state="restarting", last_failure="")
-    cmd = ["systemctl", "--user", "restart", "purple-halo-operator.service"]
+    from operator_runtime import service_unit_for_repo
+    cmd = ["systemctl", "--user", "restart", service_unit_for_repo(ROOT)]
     try:
         # Detach so this request can complete before process dies.
         subprocess.Popen(cmd, cwd=ROOT, start_new_session=True)
@@ -687,6 +699,8 @@ def simple_frequency(body: dict[str, Any] | None = None) -> dict[str, Any]:
     for_days = body.get("for_days")
     if for_days is not None and for_days != "":
         for_days = float(for_days)
+        if for_days <= 0:
+            for_days = None
     else:
         for_days = None
     until_goal = bool(body.get("until_goal", True))
@@ -695,7 +709,7 @@ def simple_frequency(body: dict[str, Any] | None = None) -> dict[str, Any]:
             set_schedule_config(
                 kind="times",
                 runs=list(body.get("runs") or []),
-                for_days=for_days,
+        for_days=for_days,
                 until_goal=until_goal,
                 every_weeks=int(body.get("every_weeks") or 1),
                 timezone=str(body.get("timezone") or "UTC"),
@@ -851,7 +865,10 @@ class Handler(BaseHTTPRequestHandler):
     server_version = "purple_halo_operator/1.0"
 
     def _cors(self) -> None:
-        self.send_header("Access-Control-Allow-Origin", "*")
+        origin = self.headers.get("Origin")
+        allowed = os.environ.get("PURPLE_HALO_ALLOWED_ORIGIN", "").strip()
+        if origin and allowed and origin == allowed:
+            self.send_header("Access-Control-Allow-Origin", origin)
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
 
@@ -921,6 +938,10 @@ class Handler(BaseHTTPRequestHandler):
                 return
         if path not in ROUTES_POST:
             self._json(404, {"ok": False, "error": "not found", "path": path})
+            return
+        expected = os.environ.get("PURPLE_HALO_API_TOKEN", "").strip()
+        if expected and self.headers.get("Authorization") != f"Bearer {expected}":
+            self._json(401, {"ok": False, "error": "authentication required"})
             return
         try:
             fn = ROUTES_POST[path]

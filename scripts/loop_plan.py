@@ -760,16 +760,21 @@ def run_plan(
 
 def self_check() -> None:
     backlog_path = ROOT / "project_memory/runtime/goal_backlog.json"
-    if backlog_path.is_file():
-        backlog_path.unlink()
-    plan = run_plan(
+    prior = backlog_path.read_bytes() if backlog_path.is_file() else None
+    try:
+      plan = run_plan(
         cycle_id=1,
         state={"completed_milestones": ["schedule_helper"], "rejected_milestones": [], "cycle_id": 0},
         research={"summary": "test", "goal_gap_addressed": "gap_product_realization"},
         goal_text=_file_text_path(goal_path()) or "Product Goal\n",
         status_text="Level 0.3\n",
         repo_snapshot={"tracked_files": []},
-    )
+      )
+    finally:
+      if prior is None:
+        backlog_path.unlink(missing_ok=True)
+      else:
+        backlog_path.write_bytes(prior)
     assert plan["plan_id"]
     assert plan["task_type"] in TASK_TYPES
     assert plan["why_this_step_now"]

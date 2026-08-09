@@ -57,11 +57,10 @@ copy_tree() {
   local dst="$2"
   mkdir -p "$dst"
   if command -v rsync >/dev/null 2>&1; then
-    rsync -a --delete --exclude '__pycache__' --exclude '*.pyc' "$src/" "$dst/"
+    rsync -a --exclude '__pycache__' --exclude '*.pyc' "$src/" "$dst/"
   else
-    rm -rf "$dst"
-    mkdir -p "$(dirname "$dst")"
-    cp -a "$src" "$dst"
+    mkdir -p "$dst"
+    cp -a "$src/." "$dst/"
   fi
 }
 
@@ -169,9 +168,8 @@ if [[ -n "$GOAL" ]]; then
   fi
   cp "$GOAL" "$DEST/project_goals.md"
   echo "goal: $DEST/project_goals.md (from $GOAL)"
-elif [[ -f "$MASTER_GOAL" ]]; then
-  cp "$MASTER_GOAL" "$DEST/project_goals.md"
-  echo "goal: $DEST/project_goals.md (purple_halo mission from master)"
+elif [[ -f "$DEST/project_goals.md" ]]; then
+  echo "goal: preserved existing $DEST/project_goals.md"
 else
   cat > "$DEST/project_goals.md" <<'MD'
 # purple_halo mission

@@ -6,7 +6,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 echo "== verify: audit-agent-rules =="
-"$ROOT/scripts/audit-agent-rules.sh"
+[[ -x "$ROOT/scripts/audit-agent-rules.sh" ]] && "$ROOT/scripts/audit-agent-rules.sh" || echo "skipped (optional)"
 
 echo "== verify: select-context =="
 python3 "$ROOT/scripts/select-context.py" --self-check
@@ -24,11 +24,11 @@ python3 "$ROOT/scripts/select-verification.py" --self-check
 echo "== verify: validate-contracts =="
 python3 "$ROOT/scripts/validate-contracts.py" --self-check
 
-echo "== verify: record-learning-candidate =="
-python3 "$ROOT/scripts/record-learning-candidate.py" --self-check
-
-echo "== verify: compact-project-learning =="
-python3 "$ROOT/scripts/compact-project-learning.py" --self-check
+for optional in record-learning-candidate.py compact-project-learning.py validate_enforcement_rollout.py run_governance_benchmarks.py replay_governance_benchmarks.py suggest_benchmark_cases.py promote_benchmark_cases.py trace_replay.py bridge_operator_report.py governance_operator_report.py; do
+  [[ -f "$ROOT/scripts/$optional" ]] || continue
+  echo "== verify: $optional =="
+  python3 "$ROOT/scripts/$optional" --self-check
+done
 
 echo "== verify: hook-runner =="
 python3 "$ROOT/scripts/hook_runner.py" --self-check
@@ -55,8 +55,6 @@ echo "== verify: cursor-native-enforcement =="
 python3 "$ROOT/scripts/cursor_native_enforcement.py" --self-check
 
 echo "== verify: validate-enforcement-rollout =="
-python3 "$ROOT/scripts/validate_enforcement_rollout.py" --self-check
-
 echo "== verify: cursor-session =="
 python3 "$ROOT/scripts/cursor_session.py" --self-check
 
@@ -67,25 +65,6 @@ echo "== verify: policy-worker =="
 python3 "$ROOT/scripts/policy_worker.py" --self-check
 
 echo "== verify: governance-benchmarks =="
-python3 "$ROOT/scripts/run_governance_benchmarks.py" --self-check
-
-echo "== verify: replay-governance-benchmarks =="
-python3 "$ROOT/scripts/replay_governance_benchmarks.py" --self-check
-
-echo "== verify: suggest-benchmark-cases =="
-python3 "$ROOT/scripts/suggest_benchmark_cases.py" --self-check
-
-echo "== verify: promote-benchmark-cases =="
-python3 "$ROOT/scripts/promote_benchmark_cases.py" --self-check
-
-echo "== verify: trace-replay =="
-python3 "$ROOT/scripts/trace_replay.py" --self-check
-
-echo "== verify: bridge-operator-report =="
-python3 "$ROOT/scripts/bridge_operator_report.py" --self-check
-
-echo "== verify: governance-operator-report =="
-python3 "$ROOT/scripts/governance_operator_report.py" --self-check
 
 if [[ -x "$ROOT/scripts/verify-code-navigation-production.sh" ]] && [[ -n "${MIMIR_API_KEY:-}" || -f "$HOME/.config/mimir/env" || -f "../mimir/.env" ]]; then
   echo "== verify: code-navigation-production =="

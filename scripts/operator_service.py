@@ -27,7 +27,7 @@ from operator_runtime import (  # noqa: E402
 
 def _run_due_tick() -> None:
     try:
-        subprocess.run(
+        result = subprocess.run(
             [sys.executable, str(SCRIPTS / "loop_schedule.py"), "--run-due"],
             cwd=ROOT,
             capture_output=True,
@@ -35,6 +35,8 @@ def _run_due_tick() -> None:
             timeout=180,
             env={**dict(__import__("os").environ), "PYTHONPATH": str(SCRIPTS), "MIMIR_ENDPOINT": ""},
         )
+        if result.returncode != 0:
+            write_service_status(last_schedule_error=(result.stderr or result.stdout or "scheduler exited non-zero")[:300])
     except Exception as exc:
         write_service_status(last_schedule_error=str(exc)[:300])
 

@@ -1,6 +1,18 @@
 #!/usr/bin/env bash
 # Verification entrypoint for purple_halo autonomous loop.
 set -euo pipefail
+
+# Self-checks are hermetic with respect to live runtime artifacts.
+VERIFY_TMP="$(mktemp -d)"
+if [[ -d project_memory/runtime ]]; then cp -a project_memory/runtime "$VERIFY_TMP/runtime"; fi
+restore_runtime() {
+  if [[ -d "$VERIFY_TMP/runtime" ]]; then
+    rm -rf project_memory/runtime
+    cp -a "$VERIFY_TMP/runtime" project_memory/runtime
+  fi
+  rm -rf "$VERIFY_TMP"
+}
+trap restore_runtime EXIT
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 echo "== verify-loop: module self-checks =="

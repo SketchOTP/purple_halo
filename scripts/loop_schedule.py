@@ -112,6 +112,7 @@ def append_run_record(
     if extra:
         record.update(extra)
     history.setdefault("attempts", []).append(record)
+    history["attempts"] = history["attempts"][-500:]
     if status == "failure":
         history["retry_count"] = int(history.get("retry_count") or 0) + 1
         history["last_failure"] = record
@@ -380,11 +381,13 @@ def run_due() -> dict[str, Any]:
         return {"ran": False, "reason": stopped.get("reason"), "campaign_stopped": True}
     if stopped and stopped.get("already"):
         return {"ran": False, "reason": stopped.get("reason"), "campaign_stopped": True}
+    due = slots_due_now()
+    if not due:
+        return {"ran": False, "reason": "no_due_slot"}
     gate = _scheduler_gate("scheduled")
     if gate and not gate.get("decision", {}).get("allow", True) and gate.get("ran") is False:
         return gate
     decision = (gate or {}).get("decision")
-    due = slots_due_now()
     # Restart-safe: claim slot before execution so crash/restart cannot double-fire.
     if due:
         try:
@@ -425,8 +428,6 @@ def run_due() -> dict[str, Any]:
         except Exception:
             pass
     if not due:
-        from loop_autonomous import record_autonomous_run
-
         decision = decision or {
             "trigger": "scheduled",
             "decided_at": _now_iso(),
@@ -441,18 +442,9 @@ def run_due() -> dict[str, Any]:
         decision["classification"] = "no_due_slot"
         decision["allow"] = False
         decision["why_run"] = "no schedule window is due now"
-        sequence_entry = record_autonomous_run(decision=decision, cycle_result={}, ran=False)
-        record = append_run_record(
-            trigger="scheduled",
-            status="skipped",
-            error="no_due_slot",
-            extra={"outcome_class": "no_due_slot", "decision_id": decision.get("decision_id")},
-        )
         return {
             "ran": False,
             "reason": "no_due_slot",
-            "record": record,
-            "sequence_entry": sequence_entry,
             "run_decision": decision,
         }
     return run_loop(trigger="scheduled", decision=decision)
@@ -504,8 +496,9 @@ def main() -> int:
         print(json.dumps(load_run_history(), indent=2))
         return 0
     if args.run_due:
-        print(json.dumps(run_due(), indent=2))
-        return 0 if True else 1
+        result = run_due()
+        print(json.dumps(result, indent=2))
+        return 0 if result.get("ran") or result.get("reason") == "no_due_slot" else 1
     if args.run_now:
         result = run_now()
         print(json.dumps(result, indent=2))
