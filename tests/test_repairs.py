@@ -60,7 +60,7 @@ def test_operator_uis_can_supply_out_of_band_api_token_for_posts():
     for name in ("app.js", "advanced.js"):
         text = (ROOT / "operator_ui" / name).read_text()
         assert "window.prompt(\"Enter the operator API token to continue:\")" in text
-        assert "Authorization" in text
+        assert 'if (operatorApiToken && method === "POST") headers.Authorization' in text
         assert "method === \"POST\"" in text
 
 

@@ -8,7 +8,7 @@ async function api(path, opts = {}, retried = false) {
     "Content-Type": "application/json",
     ...(opts.headers || {}),
   };
-  if (operatorApiToken) headers.Authorization = `Bearer ${operatorApiToken}`;
+  if (operatorApiToken && method === "POST") headers.Authorization = `Bearer ${operatorApiToken}`;
   const res = await fetch(path, { ...opts, headers });
   if (res.status === 401 && method === "POST" && !retried) {
     const entered = window.prompt("Enter the operator API token to continue:");
