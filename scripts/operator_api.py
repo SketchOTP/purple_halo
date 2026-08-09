@@ -894,7 +894,6 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(raw)))
-        self.send_header("Set-Cookie", f"ph_session={_api_token()}; HttpOnly; SameSite=Strict; Path=/")
         self._cors()
         self.end_headers()
         self.wfile.write(raw)
@@ -914,7 +913,6 @@ class Handler(BaseHTTPRequestHandler):
         elif path.suffix == ".svg":
             ctype = "image/svg+xml"
         self.send_response(200)
-        self.send_header("Set-Cookie", f"ph_session={_api_token()}; HttpOnly; SameSite=Strict; Path=/")
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()

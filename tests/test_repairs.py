@@ -34,3 +34,9 @@ def test_paragon_defaults():
     text = (ROOT / "scripts/paragon_client.py").read_text()
     assert "atlas-2.tail1a5964.ts.net:10000/v1" in text
     assert 'PARAGON_MODEL", "paragon"' in text
+
+
+def test_api_gets_do_not_provision_authentication_secret():
+    text = (ROOT / "scripts/operator_api.py").read_text()
+    assert "Set-Cookie" not in text
+    assert "ph_session={_api_token()}" not in text
