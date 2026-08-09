@@ -40,3 +40,11 @@ def test_api_gets_do_not_provision_authentication_secret():
     text = (ROOT / "scripts/operator_api.py").read_text()
     assert "Set-Cookie" not in text
     assert "ph_session={_api_token()}" not in text
+
+
+def test_ci_declares_and_installs_test_dependencies():
+    requirements = (ROOT / "requirements-dev.txt").read_text()
+    workflow = (ROOT / ".github/workflows/verify.yml").read_text()
+    assert "pytest" in requirements
+    assert "pip install" in workflow
+    assert "requirements-dev.txt" in workflow
