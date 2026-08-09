@@ -44,8 +44,20 @@ function toast(msg) {
   setTimeout(() => el.classList.remove("show"), 3000);
 }
 
-async function api(path, opts = {}) {
-  const res = await fetch(path, { headers: { "Content-Type": "application/json" }, ...opts });
+let operatorApiToken = "";
+
+async function api(path, opts = {}, retried = false) {
+  const method = String(opts.method || "GET").toUpperCase();
+  const headers = { "Content-Type": "application/json", ...(opts.headers || {}) };
+  if (operatorApiToken) headers.Authorization = `Bearer ${operatorApiToken}`;
+  const res = await fetch(path, { ...opts, headers });
+  if (res.status === 401 && method === "POST" && !retried) {
+    const entered = window.prompt("Enter the operator API token to continue:");
+    if (entered && entered.trim()) {
+      operatorApiToken = entered.trim();
+      return api(path, opts, true);
+    }
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const err = new Error(data.error || data.summary || res.statusText);
